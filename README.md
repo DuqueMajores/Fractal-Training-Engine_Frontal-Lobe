@@ -61,3 +61,9 @@ Treinamento por Lote (Batch Training por Logs)
 
 O que é: Uma aba onde o usuário pode arrastar um arquivo de log de texto (.txt) contendo diálogos reais para que o motor extraia e popule automaticamente novas regras e frequências fractais de uma vez só.
 Benefício: Agilizaria drasticamente o treinamento inicial de novas personalidades corporativas complexas.
+
+Dowload do Sistema Fractal de Diálogos:
+[chat_fractal_v4_2.zip](https://github.com/user-attachments/files/31620026/chat_fractal_v4_2.zip)
+
+[Diretrizes.txt](https://github.com/user-attachments/files/31620027/Diretrizes.txt)
+[Utilities.txt](https://github.com/user-attachments/files/31620028/Utilities.txt)
