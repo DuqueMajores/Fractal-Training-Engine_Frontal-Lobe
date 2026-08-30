@@ -1,0 +1,6 @@
+{
+  "name": "Lobo Frontal",
+  "description": "Painel de controle e treinamento de diálogo inteligente baseado em atratores fractais e pontuação ativa.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

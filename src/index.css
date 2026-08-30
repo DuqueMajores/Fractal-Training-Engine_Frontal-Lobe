@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1); }
+  50% { transform: translateY(-12px) translateX(15px) scale(1.05); }
+}
+
+@keyframes float-delayed {
+  0%, 100% { transform: translateY(0) translateX(0) scale(1.02); }
+  50% { transform: translateY(15px) translateX(-20px) scale(0.98); }
+}
+
+.animate-float {
+  animation: float 20s ease-in-out infinite;
+}
+
+.animate-float-delayed {
+  animation: float-delayed 28s ease-in-out infinite;
+}
+

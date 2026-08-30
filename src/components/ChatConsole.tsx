@@ -1,0 +1,237 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { HistoryEntry } from '../fractalEngine';
+
+interface ChatConsoleProps {
+  history: HistoryEntry[];
+  onSendMessage: (text: string) => void;
+  onApplyFeedback: (rating: number) => void;
+  tokenExistsInMemory: (token: string) => boolean;
+  normalizeText: (text: string) => string;
+  tokenizeText: (text: string) => string[];
+  lastResponse: string;
+}
+
+export const ChatConsole: React.FC<ChatConsoleProps> = ({
+  history,
+  onSendMessage,
+  onApplyFeedback,
+  tokenExistsInMemory,
+  tokenizeText,
+}) => {
+  const [inputText, setInputText] = useState('');
+  const [liveTokens, setLiveTokens] = useState<string[]>([]);
+  const [showTeachTip, setShowTeachTip] = useState(false);
+  const [learningFeedback, setLearningFeedback] = useState<string | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const container = chatContainerRef.current;
+    if (container) {
+      container.scrollTop = container.scrollHeight;
+    }
+  }, [history]);
+
+  useEffect(() => {
+    if (inputText.trim()) {
+      setLiveTokens(tokenizeText(inputText));
+    } else {
+      setLiveTokens([]);
+    }
+  }, [inputText, tokenizeText]);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inputText.trim()) return;
+
+    const isTeachPattern = /quando\s+eu\s+disser\s*:?\s*(.+?)\s*,\s*voc[eê]\s*(?:me\s*)?responde\s*:?\s*(.+)/i.test(inputText);
+    
+    onSendMessage(inputText);
+    setInputText('');
+
+    if (isTeachPattern) {
+      setLearningFeedback("Atrator assimilado na rede.");
+      setTimeout(() => setLearningFeedback(null), 3000);
+    }
+  };
+
+  const handleFeedback = (rating: number) => {
+    onApplyFeedback(rating);
+    setLearningFeedback(rating > 0 ? "Atração positiva reforçada." : "Pesos atratores reduzidos.");
+    setTimeout(() => setLearningFeedback(null), 3000);
+  };
+
+  return (
+    <div className="flex flex-col h-[500px] bg-white/90 dark:bg-slate-900/50 backdrop-blur-md border border-slate-200/60 dark:border-slate-800/80 rounded-lg overflow-hidden font-sans hover:border-sky-300 dark:hover:border-sky-500/40 transition-colors duration-300">
+      {/* Console Header */}
+      <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-100 dark:border-slate-800/60 bg-slate-50/40 dark:bg-slate-950/20">
+        <div className="flex items-center gap-2">
+          <span className="h-1.5 w-1.5 rounded-full bg-sky-400 animate-pulse" />
+          <span className="text-xs font-semibold tracking-tight text-slate-700 dark:text-slate-300">
+            Terminal de Conversa
+          </span>
+        </div>
+        <button 
+          onClick={() => setShowTeachTip(!showTeachTip)}
+          className="text-[10px] text-slate-400 dark:text-slate-500 hover:text-sky-500 dark:hover:text-sky-400 font-mono tracking-wider uppercase font-semibold transition-colors"
+        >
+          {showTeachTip ? '[Fechar Guia]' : '[Como Ensinar?]'}
+        </button>
+      </div>
+
+      {/* Teaching tips panel */}
+      <AnimatePresence>
+        {showTeachTip && (
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800/40"
+          >
+            <div className="p-4 text-xs text-slate-500 dark:text-slate-400 space-y-2">
+              <p className="font-semibold text-slate-700 dark:text-slate-300">Fórmula de Associação Livre:</p>
+              <p className="leading-relaxed">
+                Ensine novos termos digitando e enviando uma mensagem no padrão:
+              </p>
+              <code className="block p-2 rounded bg-slate-100/60 dark:bg-slate-900 font-mono text-[10px] text-sky-600 dark:text-sky-400">
+                quando eu disser: [Oi], você me responde: [Olá!]
+              </code>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Chat messages */}
+      <div ref={chatContainerRef} className="flex-1 overflow-y-auto p-5 space-y-4">
+        {history.length === 0 ? (
+          <div className="h-full flex flex-col items-center justify-center text-center p-6 text-slate-400 dark:text-slate-500">
+            <AlertCircle className="h-5 w-5 stroke-[1.2] mb-1.5 text-sky-500 dark:text-sky-400" />
+            <p className="text-xs">Nenhum diálogo ativo neste ciclo.</p>
+            <p className="text-[10px] mt-0.5 opacity-70">Envie uma mensagem para iniciar.</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {history.slice().reverse().map((entry) => (
+              <div key={entry.id} className="space-y-1">
+                {/* User Message */}
+                <div className="flex justify-end">
+                  <div className="max-w-[85%] rounded-lg bg-slate-100 dark:bg-slate-800/80 px-3.5 py-2 text-slate-800 dark:text-slate-200 text-xs border border-slate-200/30 dark:border-slate-700/20">
+                    <p className="leading-relaxed">{entry.input}</p>
+                  </div>
+                </div>
+
+                {/* Fractal Response */}
+                <div className="flex justify-start">
+                  <div className="max-w-[85%] rounded-lg bg-white dark:bg-slate-900 px-3.5 py-2 text-slate-800 dark:text-slate-200 text-xs border border-slate-200/60 dark:border-slate-800/80">
+                    <p className="leading-relaxed">
+                      {entry.response === 'up' || entry.response === 'Salvo' ? (
+                        <span className="text-slate-400 italic text-xs font-mono">
+                          Salvo
+                        </span>
+                      ) : (
+                        entry.response
+                      )}
+                    </p>
+                    
+                    {/* Telemetry info */}
+                    {entry.matchedTokens.length > 0 && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex flex-wrap gap-1 items-center">
+                        {entry.matchedTokens.map((tok, i) => (
+                          <span key={i} className="text-[9px] font-mono text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 px-1 py-0.2 rounded border border-slate-200/30 dark:border-slate-800/30">
+                            {tok}
+                          </span>
+                        ))}
+                        <span className="text-[9px] text-slate-400 dark:text-slate-500 ml-auto font-mono">
+                          {Math.round(entry.confidence * 100)}% conf.
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+            {/* Scroll anchor removed for direct container scrolling */}
+          </div>
+        )}
+      </div>
+
+      {/* Inline Feedback Banner */}
+      {history.length > 0 && history[0].response !== 'up' && history[0].response !== 'Salvo' && !history[0].feedback && (
+        <div className="bg-slate-50/50 dark:bg-slate-950/20 px-5 py-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
+          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
+            Avaliação de contexto:
+          </span>
+          <div className="flex gap-1.5">
+            <button
+              onClick={() => handleFeedback(1)}
+              className="px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-800 rounded transition-colors cursor-pointer"
+            >
+              Correto
+            </button>
+            <button
+              onClick={() => handleFeedback(-1)}
+              className="px-2 py-0.5 text-[10px] font-medium text-rose-500 hover:text-rose-600 border border-rose-200/20 dark:border-rose-950/20 rounded transition-colors cursor-pointer"
+            >
+              Incorreto
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Learning Status alert */}
+      <AnimatePresence>
+        {learningFeedback && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="mx-5 my-2 p-1.5 rounded bg-slate-50 dark:bg-slate-950 text-[10px] text-slate-500 dark:text-slate-400 border border-slate-200/40 dark:border-slate-800/40 text-center font-mono"
+          >
+            {learningFeedback}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Input section with live token visualizer */}
+      <div className="p-4 border-t border-slate-100 dark:border-slate-800/60 bg-white/80 dark:bg-slate-900/60 space-y-2">
+        {liveTokens.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1">
+            {liveTokens.map((tok, i) => {
+              const active = tokenExistsInMemory(tok);
+              return (
+                <span
+                  key={i}
+                  className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-medium border transition-colors ${
+                    active
+                      ? 'bg-sky-500 text-white border-sky-400 dark:bg-sky-600 dark:border-sky-500'
+                      : 'bg-slate-100 text-slate-400 border-slate-200/40 dark:bg-slate-800/30 dark:text-slate-500 dark:border-slate-800/20'
+                  }`}
+                >
+                  {tok}
+                </span>
+              );
+            })}
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="flex gap-1.5">
+          <input
+            type="text"
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            placeholder="Digite uma mensagem ou ensine o robô..."
+            className="flex-1 bg-slate-50/85 dark:bg-slate-950/70 border border-slate-200/60 dark:border-slate-800/80 rounded-md px-3 py-2 text-xs text-slate-800 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-600 focus:outline-none focus:ring-1 focus:ring-sky-400 dark:focus:ring-sky-500 focus:border-sky-300 dark:focus:border-sky-500"
+          />
+          <button
+            type="submit"
+            className="bg-sky-500 hover:bg-sky-600 text-white dark:bg-sky-600 dark:text-white dark:hover:bg-sky-700 rounded-md px-3.5 flex items-center justify-center transition-colors cursor-pointer"
+          >
+            <Send className="h-3.5 w-3.5" />
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+};
+
