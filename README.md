@@ -2,9 +2,10 @@ O Lobo Frontal é uma implementação sofisticada de um Motor de Diálogo Fracta
 Ele mapeia palavras e pontuações como nós em uma matriz dinâmica de frequências e transições. Ao calibrar atratores e caminhos de probabilidade com feedback ativo (reforço positivo/negativo) ou edição direta de regras, ele funciona como uma simulação funcional e adaptativa do córtex associativo humano.
 Abaixo, apresento uma análise profunda sobre o potencial deste sistema, seus impactos e horizontes futuros.
 
-<img width="1262" height="539" alt="genesis1" src="https://github.com/user-attachments/assets/c475881e-9422-462d-9a3e-7069b817a28c" />
-<img width="1292" height="577" alt="genesis2" src="https://github.com/user-attachments/assets/28a696ff-5b0e-4311-97c1-70db7210e876" />
-<img width="1273" height="580" alt="genesis3" src="https://github.com/user-attachments/assets/9c4bb8e6-eb2f-49c5-9abe-59a9969601fe" />
+<img width="912" height="751" alt="genesis1" src="https://github.com/user-attachments/assets/4fcf067f-f536-4bd8-b41d-5787071bd684" />
+<img width="908" height="764" alt="genesis2" src="https://github.com/user-attachments/assets/95a8d961-dd9f-4868-961a-eb9050d68a12" />
+<img width="1001" height="489" alt="genesis3" src="https://github.com/user-attachments/assets/f1eda064-d505-451b-ba3c-7ca23e8495cf" />
+<img width="1008" height="491" alt="genesis4" src="https://github.com/user-attachments/assets/c264d4a6-f98d-4e58-a20d-624d46239306" />
 
 1. Evolução do Sistema: Curto, Médio e Longo Prazo
 
