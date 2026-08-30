@@ -3,34 +3,42 @@ import json
 import pickle
 import types
 
-# Define stub classes in the __main__ module to satisfy pickle loader
-class DialogueFractalEngineV36:
-    def __init__(self):
-        self.direct_pairs = {}
-        self.attractor_map = {}
-        self.history = []
-        self.input_fractal = None
+# Generic class fallback
+class GenericStub:
+    def __init__(self, *args, **kwargs):
+        pass
 
-class DialogueFractalEngine:
-    def __init__(self):
-        self.direct_pairs = {}
-        self.attractor_map = {}
-        self.history = []
-        self.input_fractal = None
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        # 1. Create module dynamically if missing from sys.modules
+        if module not in sys.modules:
+            sys.modules[module] = types.ModuleType(module)
+        
+        mod = sys.modules[module]
+        main_mod = sys.modules.get('__main__')
 
-class FractalNode:
-    def __init__(self):
-        self.transitions = {}
-        self.frequencies = {}
+        # 2. If the class doesn't exist in the requested module, create it dynamically
+        if not hasattr(mod, name):
+            new_class = type(name, (object,), {
+                "__init__": lambda self, *args, **kwargs: None
+            })
+            setattr(mod, name, new_class)
+            if main_mod and not hasattr(main_mod, name):
+                setattr(main_mod, name, new_class)
 
-# Make sure these stub classes are accessible under mock names too if needed
-for m_name in ['fractalEngine', 'dialogueEngine', 'engine']:
-    if m_name not in sys.modules:
-        m = types.ModuleType(m_name)
-        setattr(m, 'DialogueFractalEngineV36', DialogueFractalEngineV36)
-        setattr(m, 'DialogueFractalEngine', DialogueFractalEngine)
-        setattr(m, 'FractalNode', FractalNode)
-        sys.modules[m_name] = m
+        # 3. If the class doesn't exist in __main__, create it there too
+        if main_mod and not hasattr(main_mod, name):
+            new_class = type(name, (object,), {
+                "__init__": lambda self, *args, **kwargs: None
+            })
+            setattr(main_mod, name, new_class)
+
+        try:
+            # Attempt normal resolution
+            return super().find_class(module, name)
+        except Exception:
+            # Absolute fallback to dynamic class
+            return getattr(mod, name, getattr(main_mod, name, GenericStub))
 
 def to_dict(obj):
     """
@@ -44,16 +52,13 @@ def to_dict(obj):
     elif isinstance(obj, (list, tuple, set)):
         return [to_dict(v) for v in obj]
     elif hasattr(obj, "__dict__"):
-        # This resolves custom class instances (like DialogueFractalEngineV36)
         res = {}
         for k, v in obj.__dict__.items():
-            # Filter out internal/private functions or fields if necessary
             if not k.startswith('__'):
                 res[k] = to_dict(v)
         return res
     else:
         try:
-            # Fallback for other potential types
             return str(obj)
         except:
             return None
@@ -69,8 +74,10 @@ def main():
     if cmd == "import":
         try:
             with open(filepath, "rb") as f:
-                data = pickle.load(f)
-            # Recursively convert data to JSON-safe dictionary
+                # Use our CustomUnpickler to dynamically resolve and bypass any missing class versions
+                unpickler = CustomUnpickler(f)
+                data = unpickler.load()
+            
             json_safe_data = to_dict(data)
             print(json.dumps(json_safe_data))
         except FileNotFoundError:
@@ -79,7 +86,6 @@ def main():
             print(json.dumps({"error": str(e)}))
     elif cmd == "export":
         try:
-            # Read from stdin to avoid CLI argument length limit issues
             json_str = sys.stdin.read()
             data = json.loads(json_str)
             with open(filepath, "wb") as f:
