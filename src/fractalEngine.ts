@@ -75,34 +75,84 @@ export class DialogueFractalEngine {
     return norm ? norm.split(' ') : [];
   }
 
-  applyFeedback(rating: number): string {
-    if (this.last_input_tokens.length === 0 || !this.last_response_text) {
-      return "up";
-    }
+  applyFeedback(ratingOrIndex: number, liked?: boolean): string {
+    if (typeof liked === 'boolean') {
+      const index = ratingOrIndex;
+      const entry = this.history[index];
+      if (entry) {
+        entry.feedback = liked ? 'like' : 'dislike';
+        const rating = liked ? 1 : -1;
+        const keys = this.tokenize(entry.input);
+        keys.forEach(key => {
+          if (this.attractor_map[key]) {
+            this.attractor_map[key] = this.attractor_map[key].map(candidate => {
+              if (candidate.response === entry.response) {
+                const newWeight = rating > 0 ? candidate.weight * 1.5 : candidate.weight * 0.2;
+                return { ...candidate, weight: Math.min(Math.max(newWeight, 0.01), 100) };
+              }
+              return candidate;
+            });
+          }
+        });
+      }
+      return "Feedback de histórico aplicado!";
+    } else {
+      const rating = ratingOrIndex;
+      if (this.last_input_tokens.length === 0 || !this.last_response_text) {
+        return "up";
+      }
 
-    const keys = this.last_input_tokens;
-    keys.forEach(key => {
+      const keys = this.last_input_tokens;
+      keys.forEach(key => {
+        if (this.attractor_map[key]) {
+          this.attractor_map[key] = this.attractor_map[key].map(candidate => {
+            if (candidate.response === this.last_response_text) {
+              const newWeight = rating > 0 ? candidate.weight * 1.5 : candidate.weight * 0.2;
+              return { ...candidate, weight: Math.min(Math.max(newWeight, 0.01), 100) };
+            }
+            return candidate;
+          });
+        }
+      });
+
+      if (this.history.length > 0) {
+        const lastEntry = this.history[0];
+        if (lastEntry.response === this.last_response_text) {
+          lastEntry.feedback = rating > 0 ? 'like' : 'dislike';
+        }
+      }
+
+      return "Feedback aplicado!";
+    }
+  }
+
+  updateRuleWeight(input: string, response: string, weight: number): void {
+    const inTokens = this.tokenize(input);
+    inTokens.forEach(key => {
       if (this.attractor_map[key]) {
         this.attractor_map[key] = this.attractor_map[key].map(candidate => {
-          if (candidate.response === this.last_response_text) {
-            const newWeight = rating > 0 ? candidate.weight * 1.5 : candidate.weight * 0.2;
-            // Cap weights to reasonable bounds for stability
-            return { ...candidate, weight: Math.min(Math.max(newWeight, 0.01), 100) };
+          if (candidate.response === response) {
+            return { ...candidate, weight: Math.min(Math.max(weight, 0.01), 100) };
           }
           return candidate;
         });
       }
     });
+  }
 
-    // Update feedback in history for the last entry
-    if (this.history.length > 0) {
-      const lastEntry = this.history[0]; // history is unshifted (descending)
-      if (lastEntry.response === this.last_response_text) {
-        lastEntry.feedback = rating > 0 ? 'like' : 'dislike';
-      }
+  addDialogueRule(input: string, response: string): void {
+    this.absorbAndPair(input, response);
+  }
+
+  processInput(userInput: string): string {
+    const match = userInput.match(/quando\s+eu\s+disser\s*:?\s*(.+?)\s*,\s*voc[eê]\s*(?:me\s*)?responde\s*:?\s*(.+)/i);
+    if (match) {
+      const input = match[1].trim();
+      const response = match[2].trim();
+      this.absorbAndPair(input, response);
+      return "Atrator assimilado na rede.";
     }
-
-    return "Feedback aplicado!";
+    return this.respond(userInput).response;
   }
 
   absorbAndPair(inputText: string, responseText: string): void {
