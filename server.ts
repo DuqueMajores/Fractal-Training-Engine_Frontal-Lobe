@@ -8,28 +8,35 @@ const PKL_PATH = path.join(process.cwd(), "memória_fracta.pkl");
 
 function importPkl(filepath: string): Promise<any> {
   return new Promise((resolve, reject) => {
-    execFile("python3", ["pickle_helper.py", "import", filepath], (error, stdout, stderr) => {
-      if (error) {
-        return reject(error);
-      }
-      try {
-        const data = JSON.parse(stdout.trim());
-        if (data.error) {
-          const err = new Error(data.error);
-          (err as any).code = data.code;
-          return reject(err);
+    execFile(
+      "python3",
+      ["pickle_helper.py", "import", filepath],
+      { env: { ...process.env, PYTHONIOENCODING: "utf-8" } },
+      (error, stdout, stderr) => {
+        if (error) {
+          return reject(error);
         }
-        resolve(data);
-      } catch (e) {
-        reject(new Error(`Failed to parse Python output: ${stdout}. Stderr: ${stderr}`));
+        try {
+          const data = JSON.parse(stdout.trim());
+          if (data.error) {
+            const err = new Error(data.error);
+            (err as any).code = data.code;
+            return reject(err);
+          }
+          resolve(data);
+        } catch (e) {
+          reject(new Error(`Failed to parse Python output: ${stdout}. Stderr: ${stderr}`));
+        }
       }
-    });
+    );
   });
 }
 
 function exportPkl(filepath: string, data: any): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn("python3", ["pickle_helper.py", "export", filepath]);
+    const child = spawn("python3", ["pickle_helper.py", "export", filepath], {
+      env: { ...process.env, PYTHONIOENCODING: "utf-8" }
+    });
     let stdout = "";
     let stderr = "";
     
