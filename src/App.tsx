@@ -47,6 +47,8 @@ export default function App() {
   const engineRef = useRef(new DialogueFractalEngine());
   const [history, setHistory] = useState<any[]>([]);
   const [rulesList, setRulesList] = useState<ConsolidatedRule[]>([]);
+  const [frequencies, setFrequencies] = useState<Record<string, number>>({});
+  const [transitions, setTransitions] = useState<Record<string, Record<string, number>>>({});
   const [darkMode, setDarkMode] = useState(false);
   const [telemetry, setTelemetry] = useState({
     totalTokens: 0,
@@ -66,6 +68,8 @@ export default function App() {
     const engine = engineRef.current;
     setHistory([...engine.history]);
     setRulesList(compileRules(engine));
+    setFrequencies({ ...engine.input_fractal.frequencies });
+    setTransitions({ ...engine.input_fractal.transitions });
     setTelemetry(engine.getTelemetryData());
 
     // Save current active state to localStorage as a lightweight cache
@@ -281,6 +285,38 @@ export default function App() {
     saveServerPkl();
   };
 
+  const handleDeleteWord = (word: string) => {
+    const engine = engineRef.current;
+    if (engine.input_fractal.frequencies[word] !== undefined) {
+      delete engine.input_fractal.frequencies[word];
+    }
+    if (engine.input_fractal.transitions[word] !== undefined) {
+      delete engine.input_fractal.transitions[word];
+    }
+    Object.keys(engine.input_fractal.transitions).forEach((src) => {
+      if (engine.input_fractal.transitions[src][word] !== undefined) {
+        delete engine.input_fractal.transitions[src][word];
+        if (Object.keys(engine.input_fractal.transitions[src]).length === 0) {
+          delete engine.input_fractal.transitions[src];
+        }
+      }
+    });
+    if (engine.attractor_map[word] !== undefined) {
+      delete engine.attractor_map[word];
+    }
+    refreshState();
+    saveServerPkl();
+  };
+
+  const handleAddWord = (word: string, frequency: number) => {
+    const engine = engineRef.current;
+    const cleanWord = word.trim().toLowerCase();
+    if (!cleanWord) return;
+    engine.input_fractal.frequencies[cleanWord] = (engine.input_fractal.frequencies[cleanWord] || 0) + frequency;
+    refreshState();
+    saveServerPkl();
+  };
+
   const handleClearMemory = () => {
     const engine = engineRef.current;
     engine.direct_pairs = {};
@@ -436,6 +472,10 @@ export default function App() {
             onAddRule={handleAddRule}
             onUpdateRuleWeight={handleUpdateRuleWeight}
             onDeleteRule={handleDeleteRule}
+            frequencies={frequencies}
+            transitions={transitions}
+            onDeleteWord={handleDeleteWord}
+            onAddWord={handleAddWord}
           />
 
         </div>
