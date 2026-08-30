@@ -140,20 +140,11 @@ export default function App() {
       const engine = engineRef.current;
       
       // Load standard engine parameters from parsed pickle dictionary
-      if (data.direct_pairs || data.attractor_map) {
-        engine.direct_pairs = data.direct_pairs || {};
-        engine.attractor_map = data.attractor_map || {};
-        if (data.frequencies) engine.input_fractal.frequencies = data.frequencies;
-        if (data.transitions) engine.input_fractal.transitions = data.transitions;
-        if (data.history) engine.history = data.history;
-        if (data.current_preset) setCurrentPreset(data.current_preset);
-        if (data.preset_states) {
-          setPresetStates(data.preset_states);
-          localStorage.setItem('fractal_preset_states', JSON.stringify(data.preset_states));
-        }
-      } else {
-        // Flat dict fallback
-        engine.direct_pairs = data || {};
+      engine.hydrate(data);
+      if (data.current_preset) setCurrentPreset(data.current_preset);
+      if (data.preset_states) {
+        setPresetStates(data.preset_states);
+        localStorage.setItem('fractal_preset_states', JSON.stringify(data.preset_states));
       }
       
       setPklStatus('loaded');
@@ -187,11 +178,7 @@ export default function App() {
       const data = result.data;
       
       if (data) {
-        engine.direct_pairs = data.direct_pairs || {};
-        engine.attractor_map = data.attractor_map || {};
-        if (data.frequencies) engine.input_fractal.frequencies = data.frequencies;
-        if (data.transitions) engine.input_fractal.transitions = data.transitions;
-        if (data.history) engine.history = data.history;
+        engine.hydrate(data);
         if (data.current_preset) setCurrentPreset(data.current_preset);
         if (data.preset_states) {
           setPresetStates(data.preset_states);
@@ -234,11 +221,14 @@ export default function App() {
         if (savedDirect && savedAttractor) {
           try {
             const engine = engineRef.current;
-            engine.direct_pairs = JSON.parse(savedDirect);
-            engine.attractor_map = JSON.parse(savedAttractor);
-            if (savedFreqs) engine.input_fractal.frequencies = JSON.parse(savedFreqs);
-            if (savedTrans) engine.input_fractal.transitions = JSON.parse(savedTrans);
-            if (savedHist) engine.history = JSON.parse(savedHist);
+            const payload = {
+              direct_pairs: JSON.parse(savedDirect),
+              attractor_map: JSON.parse(savedAttractor),
+              frequencies: savedFreqs ? JSON.parse(savedFreqs) : undefined,
+              transitions: savedTrans ? JSON.parse(savedTrans) : undefined,
+              history: savedHist ? JSON.parse(savedHist) : undefined
+            };
+            engine.hydrate(payload);
             if (savedPreset !== null) setCurrentPreset(savedPreset);
             
             setHistory([...engine.history]);

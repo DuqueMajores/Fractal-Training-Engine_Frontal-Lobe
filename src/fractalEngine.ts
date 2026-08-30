@@ -62,6 +62,97 @@ export class DialogueFractalEngine {
     this.direct_pairs = {};
   }
 
+  hydrate(data: any) {
+    if (!data) return;
+    
+    // Normalize direct_pairs
+    this.direct_pairs = {};
+    const rawPairs = data.direct_pairs !== undefined ? data.direct_pairs : data;
+    if (rawPairs && typeof rawPairs === 'object') {
+      Object.entries(rawPairs).forEach(([k, v]) => {
+        if (v !== null && v !== undefined && typeof v !== 'object') {
+          this.direct_pairs[String(k)] = String(v);
+        }
+      });
+    }
+
+    // Normalize attractor_map to Record<string, Attractor[]>
+    this.attractor_map = {};
+    const rawMap = data.attractor_map;
+    if (rawMap && typeof rawMap === 'object') {
+      Object.entries(rawMap).forEach(([key, rawCandidates]) => {
+        if (!rawCandidates) return;
+        const list: Attractor[] = [];
+
+        if (Array.isArray(rawCandidates)) {
+          rawCandidates.forEach((item: any) => {
+            if (item && typeof item === 'object') {
+              list.push({
+                response: String(item.response || item.response_text || '').trim(),
+                weight: typeof item.weight === 'number' ? item.weight : 2.0,
+                tokens: Array.isArray(item.tokens) ? item.tokens.map(String) : []
+              });
+            }
+          });
+        } else if (typeof rawCandidates === 'object') {
+          Object.entries(rawCandidates).forEach(([response, val]: [string, any]) => {
+            if (val && typeof val === 'object') {
+              list.push({
+                response: response.trim(),
+                weight: typeof val.weight === 'number' ? val.weight : 2.0,
+                tokens: Array.isArray(val.tokens) ? val.tokens.map(String) : []
+              });
+            } else if (typeof val === 'number') {
+              list.push({
+                response: response.trim(),
+                weight: val,
+                tokens: []
+              });
+            }
+          });
+        }
+        if (list.length > 0) {
+          this.attractor_map[key] = list;
+        }
+      });
+    }
+
+    // Load frequencies & transitions
+    if (data.frequencies && typeof data.frequencies === 'object') {
+      this.input_fractal.frequencies = {};
+      Object.entries(data.frequencies).forEach(([k, v]) => {
+        if (typeof v === 'number') this.input_fractal.frequencies[k] = v;
+      });
+    }
+    if (data.transitions && typeof data.transitions === 'object') {
+      this.input_fractal.transitions = {};
+      Object.entries(data.transitions).forEach(([k, v]) => {
+        if (v && typeof v === 'object') {
+          const trans: Record<string, number> = {};
+          Object.entries(v).forEach(([nk, nv]) => {
+            if (typeof nv === 'number') trans[nk] = nv;
+          });
+          this.input_fractal.transitions[k] = trans;
+        }
+      });
+    }
+
+    // History
+    if (Array.isArray(data.history)) {
+      this.history = data.history.map((entry: any) => ({
+        id: String(entry.id || Math.random().toString(36).substring(2, 9)),
+        input: String(entry.input || ''),
+        response: String(entry.response || ''),
+        timestamp: String(entry.timestamp || new Date().toLocaleTimeString()),
+        feedback: entry.feedback === 'like' || entry.feedback === 'dislike' ? entry.feedback : undefined,
+        matchedTokens: Array.isArray(entry.matchedTokens) ? entry.matchedTokens.map(String) : [],
+        confidence: typeof entry.confidence === 'number' ? entry.confidence : 0
+      }));
+    } else {
+      this.history = [];
+    }
+  }
+
   /**
    * Normalizes input text: separates punctuation (?, !, ., ,, ;, :) into isolated tokens.
    */
