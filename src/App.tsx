@@ -45,10 +45,6 @@ const compileRules = (engine: DialogueFractalEngine): ConsolidatedRule[] => {
 
 export default function App() {
   const engineRef = useRef(new DialogueFractalEngine());
-  const [currentPreset, setCurrentPreset] = useState(() => {
-    const saved = localStorage.getItem('fractal_current_preset');
-    return saved !== null ? saved : 'assistente_pessoal';
-  });
   const [history, setHistory] = useState<any[]>([]);
   const [rulesList, setRulesList] = useState<ConsolidatedRule[]>([]);
   const [darkMode, setDarkMode] = useState(false);
@@ -60,12 +56,6 @@ export default function App() {
     dislikes: 0,
     tokenFreqs: [] as Array<{ token: string; freq: number }>,
     uniqueTransitions: 0,
-  });
-
-  // State to track customized states per preset so switching presets doesn't wipe adjustments
-  const [presetStates, setPresetStates] = useState<Record<string, any>>(() => {
-    const saved = localStorage.getItem('fractal_preset_states');
-    return saved ? JSON.parse(saved) : {};
   });
 
   // Server-side .pkl status states
@@ -85,11 +75,10 @@ export default function App() {
       localStorage.setItem('fractal_frequencies', JSON.stringify(engine.input_fractal.frequencies));
       localStorage.setItem('fractal_transitions', JSON.stringify(engine.input_fractal.transitions));
       localStorage.setItem('fractal_history', JSON.stringify(engine.history));
-      localStorage.setItem('fractal_current_preset', currentPreset);
     } catch (e) {
       console.error('Failed to save active state to localStorage', e);
     }
-  }, [currentPreset]);
+  }, []);
 
   // Save the full current state to the server-side .pkl file
   const saveServerPkl = async () => {
@@ -102,9 +91,7 @@ export default function App() {
         attractor_map: engine.attractor_map,
         frequencies: engine.input_fractal.frequencies,
         transitions: engine.input_fractal.transitions,
-        history: engine.history,
-        current_preset: currentPreset,
-        preset_states: presetStates
+        history: engine.history
       };
       
       const res = await fetch('/api/save-pkl', {
@@ -141,11 +128,6 @@ export default function App() {
       
       // Load standard engine parameters from parsed pickle dictionary
       engine.hydrate(data);
-      if (data.current_preset) setCurrentPreset(data.current_preset);
-      if (data.preset_states) {
-        setPresetStates(data.preset_states);
-        localStorage.setItem('fractal_preset_states', JSON.stringify(data.preset_states));
-      }
       
       setPklStatus('loaded');
       setPklMessage('Conectado à memória_fracta.pkl (Dados restaurados)');
@@ -179,11 +161,6 @@ export default function App() {
       
       if (data) {
         engine.hydrate(data);
-        if (data.current_preset) setCurrentPreset(data.current_preset);
-        if (data.preset_states) {
-          setPresetStates(data.preset_states);
-          localStorage.setItem('fractal_preset_states', JSON.stringify(data.preset_states));
-        }
       }
       
       setPklStatus('loaded');
@@ -216,7 +193,6 @@ export default function App() {
         const savedFreqs = localStorage.getItem('fractal_frequencies');
         const savedTrans = localStorage.getItem('fractal_transitions');
         const savedHist = localStorage.getItem('fractal_history');
-        const savedPreset = localStorage.getItem('fractal_current_preset');
 
         if (savedDirect && savedAttractor) {
           try {
@@ -229,7 +205,6 @@ export default function App() {
               history: savedHist ? JSON.parse(savedHist) : undefined
             };
             engine.hydrate(payload);
-            if (savedPreset !== null) setCurrentPreset(savedPreset);
             
             setHistory([...engine.history]);
             setRulesList(compileRules(engine));
@@ -240,9 +215,7 @@ export default function App() {
           }
         }
 
-        // Default seed fallback if nothing else is available
-        engineRef.current.seedPreset('assistente_pessoal');
-        setCurrentPreset('assistente_pessoal');
+        // Starts with completely blank active memory (0 nodes, 0 attractors) by default
         refreshState();
       }
     };
@@ -257,82 +230,7 @@ export default function App() {
     }
   }, [darkMode]);
 
-  // Saves the state of a preset to our record map before we leave it
-  const preservePresetState = (presetId: string) => {
-    if (!presetId) return;
-    const engine = engineRef.current;
-    const updated = {
-      ...presetStates,
-      [presetId]: {
-        direct_pairs: { ...engine.direct_pairs },
-        attractor_map: { ...engine.attractor_map },
-        frequencies: { ...engine.input_fractal.frequencies },
-        transitions: { ...engine.input_fractal.transitions },
-        history: [...engine.history]
-      }
-    };
-    setPresetStates(updated);
-    localStorage.setItem('fractal_preset_states', JSON.stringify(updated));
-    return updated;
-  };
 
-  const handleSelectPreset = (presetId: string) => {
-    // 1. Save state of current preset
-    let currentUpdatedStates = presetStates;
-    if (currentPreset) {
-      const updated = preservePresetState(currentPreset);
-      if (updated) currentUpdatedStates = updated;
-    }
-
-    const engine = engineRef.current;
-
-    // 2. Load the state of the target preset if it was customized or cleared
-    if (currentUpdatedStates[presetId]) {
-      const state = currentUpdatedStates[presetId];
-      engine.direct_pairs = state.direct_pairs || {};
-      engine.attractor_map = state.attractor_map || {};
-      engine.input_fractal.frequencies = state.frequencies || {};
-      engine.input_fractal.transitions = state.transitions || {};
-      engine.history = state.history || [];
-    } else {
-      // Seed fresh default if no customization exists
-      engine.direct_pairs = {};
-      engine.attractor_map = {};
-      engine.input_fractal.frequencies = {};
-      engine.input_fractal.transitions = {};
-      engine.history = [];
-      engine.seedPreset(presetId);
-    }
-
-    setCurrentPreset(presetId);
-    
-    // Refresh GUI states and sync to server
-    setTimeout(() => {
-      refreshState();
-      saveServerPkl();
-    }, 50);
-  };
-
-  // Restores the default preset weights and associations
-  const handleRestoreDefaultPreset = (presetId: string) => {
-    const engine = engineRef.current;
-    engine.direct_pairs = {};
-    engine.attractor_map = {};
-    engine.input_fractal.frequencies = {};
-    engine.input_fractal.transitions = {};
-    engine.history = [];
-    
-    engine.seedPreset(presetId);
-    
-    // Clear the customized entry for this preset
-    const updated = { ...presetStates };
-    delete updated[presetId];
-    setPresetStates(updated);
-    localStorage.setItem('fractal_preset_states', JSON.stringify(updated));
-
-    refreshState();
-    saveServerPkl();
-  };
 
   const handleSendMessage = (text: string) => {
     const response = engineRef.current.processInput(text);
@@ -404,8 +302,6 @@ export default function App() {
       console.error('Failed to clear localStorage', e);
     }
 
-    setPresetStates({});
-    setCurrentPreset('');
     refreshState();
     handleDeletePkl();
   };
@@ -437,7 +333,6 @@ export default function App() {
           engine.input_fractal.frequencies[tok] = 1;
         });
 
-        setCurrentPreset('');
         refreshState();
         saveServerPkl();
       } else {
@@ -480,8 +375,6 @@ export default function App() {
 
           {/* Presets setup header card */}
           <PresetsHeader
-            currentPreset={currentPreset}
-            onSelectPreset={handleSelectPreset}
             onClearMemory={handleClearMemory}
             onExportMemory={handleExportMemory}
             onImportMemory={handleImportMemory}
@@ -491,7 +384,6 @@ export default function App() {
             onUploadPkl={handleUploadPkl}
             onSavePkl={saveServerPkl}
             onDeletePkl={handleDeletePkl}
-            onRestoreDefaultPreset={handleRestoreDefaultPreset}
           />
 
           {/* Metric telemetry bento cards */}

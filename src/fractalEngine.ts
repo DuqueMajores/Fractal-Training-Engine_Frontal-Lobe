@@ -363,7 +363,7 @@ export class DialogueFractalEngine {
   }
 
   // Seeding presets
-  seedPreset(presetName: string) {
+  seedPreset(presetName: string) { return;
     if (presetName === 'assistente_pessoal') {
       this.absorbAndPair("olá", "Olá! Como posso ajudar você hoje?");
       this.absorbAndPair("oi", "Oi! Tudo bem com você?");

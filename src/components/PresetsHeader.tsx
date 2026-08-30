@@ -1,10 +1,8 @@
 import React, { useRef } from 'react';
-import { Download, Upload, Trash2, Database, Save, RotateCcw, HelpCircle } from 'lucide-react';
+import { Download, Upload, Trash2, Database, Save, HelpCircle } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface PresetsHeaderProps {
-  currentPreset: string;
-  onSelectPreset: (name: string) => void;
   onClearMemory: () => void;
   onExportMemory: () => void;
   onImportMemory: (fileContent: string) => void;
@@ -15,12 +13,9 @@ interface PresetsHeaderProps {
   onUploadPkl: (file: File) => void;
   onSavePkl: () => void;
   onDeletePkl: () => void;
-  onRestoreDefaultPreset: (presetId: string) => void;
 }
 
 export const PresetsHeader: React.FC<PresetsHeaderProps> = ({
-  currentPreset,
-  onSelectPreset,
   onClearMemory,
   onExportMemory,
   onImportMemory,
@@ -29,7 +24,6 @@ export const PresetsHeader: React.FC<PresetsHeaderProps> = ({
   onUploadPkl,
   onSavePkl,
   onDeletePkl,
-  onRestoreDefaultPreset,
 }) => {
   const jsonInputRef = useRef<HTMLInputElement>(null);
   const pklInputRef = useRef<HTMLInputElement>(null);
@@ -55,12 +49,6 @@ export const PresetsHeader: React.FC<PresetsHeaderProps> = ({
     onUploadPkl(file);
     e.target.value = '';
   };
-
-  const presets = [
-    { id: 'assistente_pessoal', label: 'Assistente Pessoal' },
-    { id: 'suporte_tecnico', label: 'Suporte Técnico' },
-    { id: 'sarcastic_bot', label: 'Robô Irônico' },
-  ];
 
   // Map pklStatus to specific visual styling
   const statusColors = {
@@ -180,42 +168,6 @@ export const PresetsHeader: React.FC<PresetsHeaderProps> = ({
         </div>
       </div>
 
-      {/* Preset Switcher & Control */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-1 border-t border-slate-100 dark:border-slate-800/60">
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-          <span className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider font-mono shrink-0">
-            Personalidade:
-          </span>
-          <div className="flex flex-wrap gap-1.5">
-            {presets.map((p) => {
-              const active = currentPreset === p.id;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => onSelectPreset(p.id)}
-                  className={`px-3 py-1 text-xs rounded transition-all cursor-pointer border ${
-                    active
-                      ? 'bg-sky-500 border-sky-400 text-white dark:bg-sky-600 dark:border-sky-500 font-medium'
-                      : 'bg-slate-100 border-transparent hover:bg-sky-50/60 hover:text-sky-600 dark:bg-slate-800/40 dark:hover:bg-sky-950/20 text-slate-600 dark:text-slate-400 dark:hover:text-sky-400 hover:border-sky-200/40 dark:hover:border-sky-900/30'
-                  }`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {currentPreset && (
-          <button
-            onClick={() => onRestoreDefaultPreset(currentPreset)}
-            className="flex items-center gap-1 self-start sm:self-center text-[10px] text-slate-400 hover:text-sky-500 dark:hover:text-sky-400 transition-colors cursor-pointer"
-            title="Restaura os pesos originais de fábrica para esta personalidade"
-          >
-            <RotateCcw className="h-3 w-3 stroke-[1.5]" /> Restaurar Padrões da Personalidade
-          </button>
-        )}
-      </div>
     </motion.div>
   );
 };
