@@ -243,7 +243,7 @@ export default function App() {
     return response;
   };
 
-  const handleApplyFeedback = (index: number, responseText: string, liked: boolean) => {
+  const handleApplyFeedback = (index: number, liked: boolean) => {
     engineRef.current.applyFeedback(index, liked);
     refreshState();
     saveServerPkl();

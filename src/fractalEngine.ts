@@ -174,15 +174,37 @@ export class DialogueFractalEngine {
         entry.feedback = liked ? 'like' : 'dislike';
         const rating = liked ? 1 : -1;
         const keys = this.tokenize(entry.input);
+
+        // De-associate direct exact matches if marked as incorrect
+        const normInput = this.normalize(entry.input);
+        if (!liked) {
+          if (this.direct_pairs[normInput] === entry.response) {
+            delete this.direct_pairs[normInput];
+          }
+        } else {
+          this.direct_pairs[normInput] = entry.response;
+        }
+
         keys.forEach(key => {
           if (this.attractor_map[key]) {
-            this.attractor_map[key] = this.attractor_map[key].map(candidate => {
-              if (candidate.response === entry.response) {
-                const newWeight = rating > 0 ? candidate.weight * 1.5 : candidate.weight * 0.2;
-                return { ...candidate, weight: Math.min(Math.max(newWeight, 0.01), 100) };
+            if (!liked) {
+              // Remove the incorrect response from this key's attractor list so it isn't picked again
+              this.attractor_map[key] = this.attractor_map[key].filter(
+                candidate => candidate.response !== entry.response
+              );
+              if (this.attractor_map[key].length === 0) {
+                delete this.attractor_map[key];
               }
-              return candidate;
-            });
+            } else {
+              // Reinforce correct response
+              this.attractor_map[key] = this.attractor_map[key].map(candidate => {
+                if (candidate.response === entry.response) {
+                  const newWeight = candidate.weight * 1.5;
+                  return { ...candidate, weight: Math.min(newWeight, 100) };
+                }
+                return candidate;
+              });
+            }
           }
         });
       }
@@ -193,24 +215,40 @@ export class DialogueFractalEngine {
         return "up";
       }
 
-      const keys = this.last_input_tokens;
-      keys.forEach(key => {
-        if (this.attractor_map[key]) {
-          this.attractor_map[key] = this.attractor_map[key].map(candidate => {
-            if (candidate.response === this.last_response_text) {
-              const newWeight = rating > 0 ? candidate.weight * 1.5 : candidate.weight * 0.2;
-              return { ...candidate, weight: Math.min(Math.max(newWeight, 0.01), 100) };
-            }
-            return candidate;
-          });
-        }
-      });
-
       if (this.history.length > 0) {
         const lastEntry = this.history[0];
-        if (lastEntry.response === this.last_response_text) {
-          lastEntry.feedback = rating > 0 ? 'like' : 'dislike';
+        lastEntry.feedback = rating > 0 ? 'like' : 'dislike';
+        const normInput = this.normalize(lastEntry.input);
+
+        if (rating < 0) {
+          if (this.direct_pairs[normInput] === lastEntry.response) {
+            delete this.direct_pairs[normInput];
+          }
+        } else {
+          this.direct_pairs[normInput] = lastEntry.response;
         }
+
+        const keys = this.last_input_tokens;
+        keys.forEach(key => {
+          if (this.attractor_map[key]) {
+            if (rating < 0) {
+              this.attractor_map[key] = this.attractor_map[key].filter(
+                candidate => candidate.response !== lastEntry.response
+              );
+              if (this.attractor_map[key].length === 0) {
+                delete this.attractor_map[key];
+              }
+            } else {
+              this.attractor_map[key] = this.attractor_map[key].map(candidate => {
+                if (candidate.response === lastEntry.response) {
+                  const newWeight = candidate.weight * 1.5;
+                  return { ...candidate, weight: Math.min(newWeight, 100) };
+                }
+                return candidate;
+              });
+            }
+          }
+        });
       }
 
       return "Feedback aplicado!";

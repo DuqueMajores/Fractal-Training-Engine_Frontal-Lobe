@@ -6,11 +6,9 @@ import { HistoryEntry } from '../fractalEngine';
 interface ChatConsoleProps {
   history: HistoryEntry[];
   onSendMessage: (text: string) => void;
-  onApplyFeedback: (rating: number) => void;
+  onApplyFeedback: (index: number, liked: boolean) => void;
   tokenExistsInMemory: (token: string) => boolean;
-  normalizeText: (text: string) => string;
   tokenizeText: (text: string) => string[];
-  lastResponse: string;
 }
 
 export const ChatConsole: React.FC<ChatConsoleProps> = ({
@@ -56,10 +54,13 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
     }
   };
 
-  const handleFeedback = (rating: number) => {
-    onApplyFeedback(rating);
-    setLearningFeedback(rating > 0 ? "Atração positiva reforçada." : "Pesos atratores reduzidos.");
-    setTimeout(() => setLearningFeedback(null), 3000);
+  const handleFeedbackForEntry = (entryId: string, liked: boolean) => {
+    const originalIndex = history.findIndex((h) => h.id === entryId);
+    if (originalIndex !== -1) {
+      onApplyFeedback(originalIndex, liked);
+      setLearningFeedback(liked ? "Atração positiva reforçada." : "Pesos de atração deletados/reduzidos.");
+      setTimeout(() => setLearningFeedback(null), 3000);
+    }
   };
 
   return (
@@ -139,12 +140,43 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
                       <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800/60 flex flex-wrap gap-1 items-center">
                         {entry.matchedTokens.map((tok, i) => (
                           <span key={i} className="text-[9px] font-mono text-slate-400 dark:text-slate-500 bg-slate-50 dark:bg-slate-950 px-1 py-0.2 rounded border border-slate-200/30 dark:border-slate-800/30">
-                            {tok}
+                             {tok}
                           </span>
                         ))}
                         <span className="text-[9px] text-slate-400 dark:text-slate-500 ml-auto font-mono">
                           {Math.round(entry.confidence * 100)}% conf.
                         </span>
+                      </div>
+                    )}
+
+                    {/* Inline Feedback buttons accompanied with response */}
+                    {entry.response !== 'up' && entry.response !== 'Salvo' && (
+                      <div className="mt-2 pt-1.5 border-t border-slate-100/60 dark:border-slate-800/40 flex items-center justify-between gap-3">
+                        <span className="text-[9px] text-slate-400 dark:text-slate-500 font-mono font-medium">Avaliar resposta:</span>
+                        <div className="flex gap-1.5">
+                          <button
+                            type="button"
+                            onClick={() => handleFeedbackForEntry(entry.id, true)}
+                            className={`px-2 py-0.5 text-[9px] font-semibold rounded border transition-all cursor-pointer ${
+                              entry.feedback === 'like'
+                                ? 'bg-emerald-500 border-emerald-400 text-white font-bold'
+                                : 'bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400 border-slate-200/60 dark:border-slate-800/85 hover:border-emerald-400 dark:hover:border-emerald-500 hover:text-emerald-500'
+                            }`}
+                          >
+                            Correto
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleFeedbackForEntry(entry.id, false)}
+                            className={`px-2 py-0.5 text-[9px] font-semibold rounded border transition-all cursor-pointer ${
+                              entry.feedback === 'dislike'
+                                ? 'bg-rose-500 border-rose-400 text-white font-bold'
+                                : 'bg-slate-50 text-slate-500 dark:bg-slate-950 dark:text-slate-400 border-slate-200/60 dark:border-slate-800/85 hover:border-rose-400 dark:hover:border-rose-500 hover:text-rose-500'
+                            }`}
+                          >
+                            Incorreto
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
@@ -155,29 +187,6 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
           </div>
         )}
       </div>
-
-      {/* Inline Feedback Banner */}
-      {history.length > 0 && history[0].response !== 'up' && history[0].response !== 'Salvo' && !history[0].feedback && (
-        <div className="bg-slate-50/50 dark:bg-slate-950/20 px-5 py-2.5 border-t border-slate-100 dark:border-slate-800/60 flex items-center justify-between">
-          <span className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">
-            Avaliação de contexto:
-          </span>
-          <div className="flex gap-1.5">
-            <button
-              onClick={() => handleFeedback(1)}
-              className="px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 border border-slate-200 dark:border-slate-800 rounded transition-colors cursor-pointer"
-            >
-              Correto
-            </button>
-            <button
-              onClick={() => handleFeedback(-1)}
-              className="px-2 py-0.5 text-[10px] font-medium text-rose-500 hover:text-rose-600 border border-rose-200/20 dark:border-rose-950/20 rounded transition-colors cursor-pointer"
-            >
-              Incorreto
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Learning Status alert */}
       <AnimatePresence>
