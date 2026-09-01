@@ -379,6 +379,15 @@ export default function App() {
     }
   };
 
+  const handleImportBatchQA = (pairs: Array<{ q: string; a: string }>) => {
+    const engine = engineRef.current;
+    pairs.forEach((pair) => {
+      engine.absorbAndPair(pair.q, pair.a);
+    });
+    refreshState();
+    saveServerPkl();
+  };
+
   const tokenExistsInMemory = (token: string): boolean => {
     return !!engineRef.current.attractor_map[token];
   };
@@ -458,6 +467,7 @@ export default function App() {
               onApplyFeedback={handleApplyFeedback}
               tokenExistsInMemory={tokenExistsInMemory}
               tokenizeText={(t) => engineRef.current.tokenize(t)}
+              onImportBatchQA={handleImportBatchQA}
             />
 
             <ChartsPanel

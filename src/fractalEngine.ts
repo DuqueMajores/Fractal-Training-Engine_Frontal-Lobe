@@ -316,6 +316,10 @@ export class DialogueFractalEngine {
         }
       });
     }
+
+    if (outTokens.length > 0) {
+      this.input_fractal.feed(outTokens);
+    }
   }
 
   respond(userInput: string): { response: string; matchedTokens: string[]; confidence: number } {

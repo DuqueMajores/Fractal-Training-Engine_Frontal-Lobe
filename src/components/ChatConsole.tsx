@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, ThumbsUp, ThumbsDown, AlertCircle } from 'lucide-react';
+import { Send, ThumbsUp, ThumbsDown, AlertCircle, Paperclip } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { HistoryEntry } from '../fractalEngine';
+import { parseQATextFile } from '../utils/qaParser';
 
 interface ChatConsoleProps {
   history: HistoryEntry[];
@@ -9,6 +10,7 @@ interface ChatConsoleProps {
   onApplyFeedback: (index: number, liked: boolean) => void;
   tokenExistsInMemory: (token: string) => boolean;
   tokenizeText: (text: string) => string[];
+  onImportBatchQA?: (pairs: Array<{ q: string; a: string }>) => void;
 }
 
 export const ChatConsole: React.FC<ChatConsoleProps> = ({
@@ -17,12 +19,38 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
   onApplyFeedback,
   tokenExistsInMemory,
   tokenizeText,
+  onImportBatchQA,
 }) => {
   const [inputText, setInputText] = useState('');
   const [liveTokens, setLiveTokens] = useState<string[]>([]);
   const [showTeachTip, setShowTeachTip] = useState(false);
   const [learningFeedback, setLearningFeedback] = useState<string | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const content = event.target?.result as string;
+      if (content) {
+        const pairs = parseQATextFile(content);
+        if (pairs.length === 0) {
+          alert("Não foi possível encontrar perguntas e respostas válidas no arquivo de texto. Certifique-se de que cada linha siga um padrão (ex: Pergunta | Resposta, ou alternando perguntas e respostas).");
+          return;
+        }
+        if (onImportBatchQA) {
+          onImportBatchQA(pairs);
+          setLearningFeedback(`Processados ${pairs.length} novos registros do arquivo de texto!`);
+          setTimeout(() => setLearningFeedback(null), 4000);
+        }
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
 
   useEffect(() => {
     const container = chatContainerRef.current;
@@ -225,6 +253,21 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
         )}
 
         <form onSubmit={handleSubmit} className="flex gap-1.5">
+          <input
+            type="file"
+            accept=".txt"
+            ref={fileInputRef}
+            onChange={handleFileChange}
+            className="hidden"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            title="Importar perguntas e respostas de arquivo de texto (.txt)"
+            className="border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-sky-500 dark:text-slate-400 dark:hover:text-sky-400 rounded-md px-3 flex items-center justify-center transition-colors cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-950/40"
+          >
+            <Paperclip className="h-3.5 w-3.5" />
+          </button>
           <input
             type="text"
             value={inputText}
