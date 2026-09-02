@@ -80,7 +80,10 @@ export default function App() {
       localStorage.setItem('fractal_transitions', JSON.stringify(engine.input_fractal.transitions));
       localStorage.setItem('fractal_history', JSON.stringify(engine.history));
       localStorage.setItem('fractal_explanations', JSON.stringify(engine.explanations));
+      localStorage.setItem('fractal_origins', JSON.stringify(engine.origins));
+      localStorage.setItem('fractal_last_context_concept', JSON.stringify(engine.last_context_concept || ""));
       localStorage.setItem('fractal_unknown_questions_count', String(engine.unknown_questions_count));
+      localStorage.setItem('fractal_saved_words', JSON.stringify(engine.saved_words));
     } catch (e) {
       console.error('Failed to save active state to localStorage', e);
     }
@@ -99,7 +102,10 @@ export default function App() {
         transitions: engine.input_fractal.transitions,
         history: engine.history,
         explanations: engine.explanations,
-        unknown_questions_count: engine.unknown_questions_count
+        origins: engine.origins,
+        last_context_concept: engine.last_context_concept,
+        unknown_questions_count: engine.unknown_questions_count,
+        saved_words: engine.saved_words
       };
       
       const res = await fetch('/api/save-pkl', {
@@ -202,7 +208,10 @@ export default function App() {
         const savedTrans = localStorage.getItem('fractal_transitions');
         const savedHist = localStorage.getItem('fractal_history');
         const savedExplanations = localStorage.getItem('fractal_explanations');
+        const savedOrigins = localStorage.getItem('fractal_origins');
+        const savedLastContext = localStorage.getItem('fractal_last_context_concept');
         const savedUnknownQuestionsCount = localStorage.getItem('fractal_unknown_questions_count');
+        const savedSavedWords = localStorage.getItem('fractal_saved_words');
 
         if (savedDirect && savedAttractor) {
           try {
@@ -214,7 +223,10 @@ export default function App() {
               transitions: savedTrans ? JSON.parse(savedTrans) : undefined,
               history: savedHist ? JSON.parse(savedHist) : undefined,
               explanations: savedExplanations ? JSON.parse(savedExplanations) : undefined,
-              unknown_questions_count: savedUnknownQuestionsCount ? Number(savedUnknownQuestionsCount) : undefined
+              origins: savedOrigins ? JSON.parse(savedOrigins) : undefined,
+              last_context_concept: savedLastContext ? JSON.parse(savedLastContext) : undefined,
+              unknown_questions_count: savedUnknownQuestionsCount ? Number(savedUnknownQuestionsCount) : undefined,
+              saved_words: savedSavedWords ? JSON.parse(savedSavedWords) : undefined
             };
             engine.hydrate(payload);
             

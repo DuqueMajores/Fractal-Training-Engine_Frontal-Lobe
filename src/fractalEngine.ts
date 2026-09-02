@@ -51,7 +51,10 @@ export class DialogueFractalEngine {
   attractor_map: Record<string, Attractor[]>;
   direct_pairs: Record<string, string>;
   explanations: Record<string, { concept: string; explanation: string }> = {};
+  origins: Record<string, { concept: string; origin: string }> = {};
   unknown_questions_count: number = 0;
+  saved_words: string[] = [];
+  last_context_concept: string | null = null;
   
   // Operational state
   last_input_tokens: string[] = [];
@@ -63,7 +66,10 @@ export class DialogueFractalEngine {
     this.attractor_map = {};
     this.direct_pairs = {};
     this.explanations = {};
+    this.origins = {};
     this.unknown_questions_count = 0;
+    this.saved_words = [];
+    this.last_context_concept = null;
   }
 
   hydrate(data: any) {
@@ -71,7 +77,10 @@ export class DialogueFractalEngine {
     
     // Load explanations & counters
     this.explanations = data.explanations || {};
+    this.origins = data.origins || {};
+    this.last_context_concept = data.last_context_concept || null;
     this.unknown_questions_count = typeof data.unknown_questions_count === 'number' ? data.unknown_questions_count : 0;
+    this.saved_words = Array.isArray(data.saved_words) ? data.saved_words.map(String) : [];
     
     // Normalize direct_pairs
     this.direct_pairs = {};
@@ -283,25 +292,299 @@ export class DialogueFractalEngine {
     return noPunct.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   }
 
+  capitalizeFirst(str: string): string {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
+  }
+
+  getArticleForWord(word: string): string {
+    const w = word.trim().toLowerCase();
+    if (w.endsWith('as')) return 'As';
+    if (w.endsWith('os')) return 'Os';
+    if (w.endsWith('a')) return 'A';
+    if (w.endsWith('o')) return 'O';
+    return 'O/A';
+  }
+
+  getAdaptiveTemplates() {
+    return [
+      // ORIGIN TEMPLATES FIRST
+      {
+        regex: /^como\s+surgiu\s+o\s+conceito\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        type: 'origin',
+        formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
+      },
+      {
+        regex: /^qual\s+e\s+a\s+origem\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        type: 'origin',
+        formatter: (concept: string, origin: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} ${origin}`
+      },
+      {
+        regex: /^de\s+onde\s+surgiu\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'origin',
+        formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
+      },
+
+      // SPECIAL ASK ABOUT (saves context)
+      {
+        regex: /^(?:voce\s+)?pode\s+me\s+falar\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'special_ask',
+        formatter: () => `Sim, o que você quer saber sobre?`
+      },
+
+      // EXPLANATION TEMPLATES
+      {
+        regex: /^o\s+que\s+e\s+(?:um|uma|um\s*\/|uma\s*\/|um\/uma)\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} é ${exp}`
+      },
+      {
+        regex: /^explique\s+(.+)\s+como\s+se\s+eu\s+nao\s+soubesse\s+nada\s+sobre\s+o\s+assunto$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^(?:voce\s+)?pode\s+definir\s+(.+)\s+em\s+poucas\s+palavras$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^pode\s+me\s+dar\s+uma\s+explicacao\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^pode\s+explicar\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^pode\s+explicar\s+(.+)\s+de\s+forma\s+simples$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^explique\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^pode\s+me\s+dar\s+uma\s+definicao\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+significa\s+o\s+termo\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^qual\s+e\s+o\s+significado\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^qual\s+e\s+a\s+explicacao\s+para\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^me\s+explique\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+eu\s+preciso\s+saber\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^quero\s+saber\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^qual\s+e\s+a\s+definicao\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^(?:voce\s+)?pode\s+explicar\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `Certamente, ${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^pode\s+me\s+explicar\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `Sim, ${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^como\s+podemos\s+definir\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^explique\s+(.+)\s+para\s+um\s+iniciante$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+quer\s+dizer\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^como\s+(?:voc[eê]\s+)?explicaria\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+exatamente\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^me\s+fala\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `A respeito de ${this.capitalizeFirst(concept)}, posso dizer que ${exp}`
+      },
+      {
+        regex: /^me\s+explique\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+significa\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^quero\s+entender\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+devo\s+saber\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^fale\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `A respeito de ${this.capitalizeFirst(concept)}, posso dizer que ${exp}`
+      },
+      {
+        regex: /^afinal\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^(?:voce\s+)?sabe\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^como\s+(?:voc[eê]\s+)?define\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^(?:me\s+ensine|quero\s+aprender)\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^mas\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^o\s+que\s+e\s+(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        regex: /^explique\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      }
+    ];
+  }
+
   findExplanation(userInput: string): { concept: string; explanation: string } | null {
     const cleanUser = this.normalizeAccents(userInput);
-    
     for (const entry of Object.values(this.explanations)) {
       if (!entry || !entry.concept) continue;
       const cleanConcept = this.normalizeAccents(entry.concept);
-      
-      const patterns = [
-        cleanConcept,
-        `o que e ${cleanConcept}`,
-        `me fale sobre ${cleanConcept}`,
-        `me explique o que e ${cleanConcept}`
-      ];
-      
-      if (patterns.includes(cleanUser)) {
+      if (cleanConcept === cleanUser) {
         return entry;
       }
     }
     return null;
+  }
+
+  findAdaptiveQuery(userInput: string): string | null {
+    const cleanUser = this.normalizeAccents(userInput);
+
+    // Check context sub-prompts first
+    if (this.last_context_concept) {
+      const contextNorm = this.normalizeAccents(this.last_context_concept);
+      const expEntry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === contextNorm);
+      const originEntry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === contextNorm);
+
+      if (["o que significa", "me explique", "conte me sobre", "conte-me sobre", "fale sobre", "me fale sobre"].includes(cleanUser)) {
+        if (expEntry) {
+          return `${this.capitalizeFirst(expEntry.concept)} significa ${expEntry.explanation}`;
+        }
+      }
+      if (["origem", "qual e a origem", "de onde surgiu", "como surgiu", "como surgiu o conceito"].includes(cleanUser)) {
+        if (originEntry) {
+          return `${this.getArticleForWord(originEntry.concept)} ${this.capitalizeFirst(originEntry.concept)} ${originEntry.origin}`;
+        }
+      }
+    }
+
+    // Check templates
+    const list = this.getAdaptiveTemplates();
+    for (const t of list) {
+      const match = cleanUser.match(t.regex);
+      if (match) {
+        const extractedConcept = match[1].trim();
+        const extractedConceptNorm = this.normalizeAccents(extractedConcept);
+
+        if (t.type === 'special_ask') {
+          const exists = Object.values(this.explanations).some(e => this.normalizeAccents(e.concept) === extractedConceptNorm) ||
+                         Object.values(this.origins).some(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          if (exists) {
+            this.last_context_concept = extractedConcept;
+            return t.formatter("", "");
+          }
+        } else if (t.type === 'explanation') {
+          const entry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === extractedConceptNorm);
+          if (entry) {
+            return t.formatter(entry.concept, entry.explanation);
+          }
+        } else if (t.type === 'origin') {
+          const entry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          if (entry) {
+            return t.formatter(entry.concept, entry.origin);
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  isAnyQueryPattern(userInput: string): boolean {
+    const cleanUser = this.normalizeAccents(userInput);
+    const list = this.getAdaptiveTemplates();
+    for (const t of list) {
+      if (cleanUser.match(t.regex)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   addExplanation(concept: string, explanation: string): void {
@@ -312,6 +595,16 @@ export class DialogueFractalEngine {
     };
     this.unknown_questions_count = 0;
     this.absorbAndPair(concept, explanation);
+  }
+
+  addOrigin(concept: string, origin: string): void {
+    const normKey = this.normalize(concept);
+    this.origins[normKey] = {
+      concept: concept.trim(),
+      origin: origin.trim()
+    };
+    this.unknown_questions_count = 0;
+    this.absorbAndPair(concept, origin);
   }
 
   addDialogueRule(input: string, response: string): void {
@@ -326,6 +619,18 @@ export class DialogueFractalEngine {
       if (text && explanation) {
         this.addExplanation(text, explanation);
         const responseText = `Explicação de "${text}" salva e assimilada na rede.`;
+        this.logHistory(userInput, responseText, [], 1.0);
+        return responseText;
+      }
+    }
+
+    const gtIndex = userInput.indexOf('>');
+    if (gtIndex !== -1) {
+      const text = userInput.substring(0, gtIndex).trim();
+      const origin = userInput.substring(gtIndex + 1).trim();
+      if (text && origin) {
+        this.addOrigin(text, origin);
+        const responseText = `Origem de "${text}" salva e assimilada na rede.`;
         this.logHistory(userInput, responseText, [], 1.0);
         return responseText;
       }
@@ -395,7 +700,21 @@ export class DialogueFractalEngine {
       return { response: "Feedback negativo registrado. Ajustando pesos de atração.", matchedTokens: [normInput], confidence: 1.0 };
     }
 
-    // 1. Explanation query matcher (checks direct & prefixes with accent stripping)
+    // 1. Check adaptive query templates (including explanations, origins and context)
+    const adaptiveResponse = this.findAdaptiveQuery(userInput);
+    if (adaptiveResponse) {
+      const tks = this.tokenize(userInput);
+      this.input_fractal.feed(tks);
+      this.last_input_tokens = tks;
+      this.last_response_text = adaptiveResponse;
+      this.unknown_questions_count = 0; // reset
+      
+      const result = { response: adaptiveResponse, matchedTokens: tks, confidence: 1.0 };
+      this.logHistory(userInput, adaptiveResponse, tks, 1.0);
+      return result;
+    }
+
+    // fallback check for direct concept query (e.g. user just enters "futebol" or "abóbora" directly)
     const matchedExplanation = this.findExplanation(userInput);
     if (matchedExplanation) {
       const finalResponse = `${matchedExplanation.concept} significa ${matchedExplanation.explanation}`;
@@ -424,8 +743,9 @@ export class DialogueFractalEngine {
     }
 
     // 3. Question fallback check
-    // If it ends with ? and has no exact/explanation match, it's an unknown question!
-    const isQuestion = userInput.trim().endsWith('?') || normInput.endsWith('?');
+    // If it ends with ? and has no exact/explanation match, or if it matches any query pattern structure, it's an unknown question!
+    const isQuestionPattern = this.isAnyQueryPattern(userInput);
+    const isQuestion = userInput.trim().endsWith('?') || normInput.endsWith('?') || isQuestionPattern;
     if (isQuestion) {
       this.unknown_questions_count++;
       let responseText = "";
@@ -491,6 +811,21 @@ export class DialogueFractalEngine {
       const result = { response, matchedTokens, confidence };
       this.logHistory(userInput, response, matchedTokens, confidence);
       return result;
+    }
+
+    const cleanWord = userInput.trim().toLowerCase();
+    const isSaved = this.saved_words.some(w => w.toLowerCase().trim() === cleanWord);
+
+    if (isSaved) {
+      const response = "Já foi salvo. Quer me dizer o que significa?";
+      this.last_response_text = response;
+      const result = { response, matchedTokens: [], confidence: 1.0 };
+      this.logHistory(userInput, response, [], 1.0);
+      return result;
+    }
+
+    if (cleanWord) {
+      this.saved_words.push(userInput.trim());
     }
 
     this.last_response_text = "Salvo";
