@@ -308,7 +308,7 @@ export class DialogueFractalEngine {
 
   getAdaptiveTemplates() {
     const prep = '(?:de\\s*(?:o|a|os|as)?|da|do|das|dos)';
-    const art = '(?:o|a|os|as|um|uma)?';
+    const art = '(?:(?:o|a|os|as|um|uma)\\s+)?';
     
     return [
       // --- ORIGIN TEMPLATES ---
