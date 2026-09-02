@@ -307,204 +307,222 @@ export class DialogueFractalEngine {
   }
 
   getAdaptiveTemplates() {
+    const prep = '(?:de\\s*(?:o|a|os|as)?|da|do|das|dos)';
+    const art = '(?:o|a|os|as|um|uma)?';
+    
     return [
-      // ORIGIN TEMPLATES FIRST
+      // --- ORIGIN TEMPLATES ---
       {
-        regex: /^como\s+surgiu\s+o\s+conceito\s+de(?:[oas]|das|dos)?\s+(.+)$/,
-        type: 'origin',
-        formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
-      },
-      {
-        regex: /^qual\s+e\s+a\s+origem\s+de(?:[oas]|das|dos)?\s+(.+)$/,
+        // Qual é a origem de [Texto]? / Origem de [Texto]
+        regex: new RegExp(`^(?:qual\\s+e\\s+a\\s+)?origem\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'origin',
         formatter: (concept: string, origin: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} ${origin}`
       },
       {
-        regex: /^de\s+onde\s+surgiu\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // De onde surgiu [Texto]?
+        regex: new RegExp(`^de\\s+onde\\s+surgiu\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'origin',
+        formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
+      },
+      {
+        // Como surgiu o conceito de [Texto]?
+        regex: new RegExp(`^como\\s+surgiu\\s+o\\s+conceito\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'origin',
         formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
       },
 
-      // SPECIAL ASK ABOUT (saves context)
+      // --- SPECIAL CONTEXT TEMPLATE ---
       {
-        regex: /^(?:voce\s+)?pode\s+me\s+falar\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Você pode me falar sobre [texto]? / pode me falar sobre [texto] / fale sobre [texto]
+        regex: new RegExp(`^(?:voce\\s+)?pode\\s+me\\s+falar\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
         type: 'special_ask',
         formatter: () => `Sim, o que você quer saber sobre?`
       },
 
-      // EXPLANATION TEMPLATES
+      // --- EXPLANATION TEMPLATES ---
       {
-        regex: /^o\s+que\s+e\s+(?:um|uma|um\s*\/|uma\s*\/|um\/uma)\s+(.+)$/,
+        // O que é um/uma [texto]?
+        regex: new RegExp(`^o\\s+que\\s+e\\s+(?:um|uma|um\\s*\\/\\s*uma)\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} é ${exp}`
       },
       {
-        regex: /^explique\s+(.+)\s+como\s+se\s+eu\s+nao\s+soubesse\s+nada\s+sobre\s+o\s+assunto$/,
+        // O que é [texto]?
+        regex: new RegExp(`^o\\s+que\\s+e\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^(?:voce\s+)?pode\s+definir\s+(.+)\s+em\s+poucas\s+palavras$/,
+        // O que significa [texto]?
+        regex: new RegExp(`^o\\s+que\\s+significa\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^pode\s+me\s+dar\s+uma\s+explicacao\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // O que quer dizer [texto]?
+        regex: new RegExp(`^o\\s+que\\s+quer\\s+dizer\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^pode\s+explicar\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        // Me fala sobre [texto]. / Fale sobre [texto].
+        regex: new RegExp(`^(?:me\\s+)?fala(?:r)?\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+        formatter: (concept: string, exp: string) => `A respeito de ${this.capitalizeFirst(concept)}, posso dizer que ${exp}`
       },
       {
-        regex: /^pode\s+explicar\s+(.+)\s+de\s+forma\s+simples$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^explique\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^pode\s+me\s+dar\s+uma\s+definicao\s+de(?:[oas]|das|dos)?\s+(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^o\s+que\s+significa\s+o\s+termo\s+(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^qual\s+e\s+o\s+significado\s+de(?:[oas]|das|dos)?\s+(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^qual\s+e\s+a\s+explicacao\s+para\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^me\s+explique\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^o\s+que\s+eu\s+preciso\s+saber\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^quero\s+saber\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^qual\s+e\s+a\s+definicao\s+de(?:[oas]|das|dos)?\s+(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^(?:voce\s+)?pode\s+explicar\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `Certamente, ${this.capitalizeFirst(concept)} significa ${exp}`
-      },
-      {
-        regex: /^pode\s+me\s+explicar\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Pode me explicar [texto]?
+        regex: new RegExp(`^pode\\s+me\\s+explicar\\s+(?:o\\s+que\\s+e\\s+)?${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `Sim, ${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^como\s+podemos\s+definir\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Pode explicar o que é [texto]?
+        regex: new RegExp(`^pode\\s+explicar\\s+(?:o\\s+que\\s+e\\s+)?${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^explique\s+(.+)\s+para\s+um\s+iniciante$/,
+        // Você pode explicar [texto]?
+        regex: new RegExp(`^voce\\s+pode\\s+(?:me\\s+)?explicar\\s+(?:o\\s+que\\s+e\\s+)?${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `Certamente, ${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Quero saber o que é [texto].
+        regex: new RegExp(`^quero\\s+saber\\s+o\\s+que\\s+e\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^o\s+que\s+quer\s+dizer\s+(.+)$/,
+        // Quero entender [texto].
+        regex: new RegExp(`^quero\\s+entender\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^como\s+(?:voc[eê]\s+)?explicaria\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // O que significa o termo [texto]?
+        regex: new RegExp(`^o\\s+que\\s+significa\\s+o\\s+termo\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^o\s+que\s+exatamente\s+e\s+(?:um|uma)?\s*(.+)$/,
+        // Qual é o significado de [texto]?
+        regex: new RegExp(`^qual\\s+e\\s+o\\s+significado\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^me\s+fala\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `A respeito de ${this.capitalizeFirst(concept)}, posso dizer que ${exp}`
-      },
-      {
-        regex: /^me\s+explique\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Qual é a definição de [texto]?
+        regex: new RegExp(`^qual\\s+e\\s+a\\s+definicao\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^o\s+que\s+significa\s+(.+)$/,
+        // Como podemos definir [texto]?
+        regex: new RegExp(`^como\\s+podemos\\s+definir\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^quero\s+entender\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Como você define [texto]?
+        regex: new RegExp(`^como\\s+voce\\s+define\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^o\s+que\s+devo\s+saber\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Pode me dar uma definição de [texto]?
+        regex: new RegExp(`^pode\\s+me\\s+dar\\s+uma\\s+definicao\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^fale\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
-        type: 'explanation',
-        formatter: (concept: string, exp: string) => `A respeito de ${this.capitalizeFirst(concept)}, posso dizer que ${exp}`
-      },
-      {
-        regex: /^afinal\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        // Pode me dar uma explicação sobre [texto]?
+        regex: new RegExp(`^pode\\s+me\\s+dar\\s+uma\\s+explicacao\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^(?:voce\s+)?sabe\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        // Pode explicar [texto] de forma simples?
+        regex: new RegExp(`^pode\\s+explicar\\s+(.+)\\s+de\\s+forma\\s+simples$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^como\s+(?:voc[eê]\s+)?define\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Explique [texto] como se eu não soubesse nada sobre o assunto.
+        regex: new RegExp(`^explique\\s+(.+)\\s+como\\s+se\\s+eu\\s+nao\\s+soubesse\\s+nada\\s+sobre\\s+o\\s+assunto$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^(?:me\s+ensine|quero\s+aprender)\s+sobre\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Explique [texto] para um iniciante.
+        regex: new RegExp(`^explique\\s+(.+)\\s+para\\s+um\\s+iniciante$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^mas\s+o\s+que\s+e\s+(?:um|uma)?\s*(.+)$/,
+        // O que eu preciso saber sobre [texto]?
+        regex: new RegExp(`^o\\s+que\\s+(?:eu\\s+)?preciso\\s+saber\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^o\s+que\s+e\s+(.+)$/,
+        // O que devo saber sobre [texto]?
+        regex: new RegExp(`^o\\s+que\\s+devo\\s+saber\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        regex: /^explique\s+(?:o|a|os|as|um|uma)?\s*(.+)$/,
+        // Me ensine sobre [texto]. / Quero aprender sobre [texto].
+        regex: new RegExp(`^(?:me\\s+ensine|quero\\s+aprender)\\s+sobre\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Como você explicaria [texto]?
+        regex: new RegExp(`^como\\s+voce\\s+explicaria\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // O que exatamente é [texto]?
+        regex: new RegExp(`^o\\s+que\\s+exatamente\\s+e\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Afinal, o que é [texto]?
+        regex: new RegExp(`^afinal\\s+o\\s+que\\s+e\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Mas o que é [texto]?
+        regex: new RegExp(`^mas\\s+o\\s+que\\s+e\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Você sabe o que é [texto]?
+        regex: new RegExp(`^voce\\s+sabe\\s+o\\s+que\\s+e\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Você pode definir [texto] em poucas palavras?
+        regex: new RegExp(`^(?:voce\\s+)?pode\\s+definir\\s+(.+)\\s+em\\s+poucas\\s+palavras$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Qual é a explicação para [texto]?
+        regex: new RegExp(`^qual\\s+e\\s+a\\s+explicacao\\s+para\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Explique [texto]
+        regex: new RegExp(`^explique\\s+(?:o\\s+que\\s+e\\s+)?${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       }
@@ -594,6 +612,10 @@ export class DialogueFractalEngine {
       explanation: explanation.trim()
     };
     this.unknown_questions_count = 0;
+    const cleanC = concept.trim();
+    if (!this.saved_words.some(w => w.toLowerCase() === cleanC.toLowerCase())) {
+      this.saved_words.push(cleanC);
+    }
     this.absorbAndPair(concept, explanation);
   }
 
@@ -604,6 +626,10 @@ export class DialogueFractalEngine {
       origin: origin.trim()
     };
     this.unknown_questions_count = 0;
+    const cleanC = concept.trim();
+    if (!this.saved_words.some(w => w.toLowerCase() === cleanC.toLowerCase())) {
+      this.saved_words.push(cleanC);
+    }
     this.absorbAndPair(concept, origin);
   }
 
@@ -612,6 +638,18 @@ export class DialogueFractalEngine {
   }
 
   processInput(userInput: string): string {
+    const sigIndex = userInput.toLowerCase().indexOf(' significa ');
+    if (sigIndex !== -1) {
+      const text = userInput.substring(0, sigIndex).trim();
+      const explanation = userInput.substring(sigIndex + 11).trim();
+      if (text && explanation) {
+        this.addExplanation(text, explanation);
+        const responseText = `Explicação de "${text}" salva e assimilada na rede.`;
+        this.logHistory(userInput, responseText, [], 1.0);
+        return responseText;
+      }
+    }
+
     const eqIndex = userInput.indexOf('=');
     if (eqIndex !== -1) {
       const text = userInput.substring(0, eqIndex).trim();
@@ -774,7 +812,18 @@ export class DialogueFractalEngine {
       return result;
     }
 
-    // 4. Token-based fractal attractor weight matching
+    // 4. Check if it's already a saved word (but has no explanation yet) before attractor weights matching
+    const cleanWord = userInput.trim().toLowerCase();
+    const isSaved = this.saved_words.some(w => w.toLowerCase().trim() === cleanWord);
+    if (isSaved) {
+      const response = "Já foi salvo. Quer me dizer o que significa?";
+      this.last_response_text = response;
+      const result = { response, matchedTokens: [], confidence: 1.0 };
+      this.logHistory(userInput, response, [], 1.0);
+      return result;
+    }
+
+    // 5. Token-based fractal attractor weight matching
     const tokens = this.tokenize(userInput);
     if (tokens.length === 0) {
       return { response: "Salvo", matchedTokens: [], confidence: 0 };
@@ -810,17 +859,6 @@ export class DialogueFractalEngine {
       const confidence = Math.min(maxScore / 4.0, 1.0);
       const result = { response, matchedTokens, confidence };
       this.logHistory(userInput, response, matchedTokens, confidence);
-      return result;
-    }
-
-    const cleanWord = userInput.trim().toLowerCase();
-    const isSaved = this.saved_words.some(w => w.toLowerCase().trim() === cleanWord);
-
-    if (isSaved) {
-      const response = "Já foi salvo. Quer me dizer o que significa?";
-      this.last_response_text = response;
-      const result = { response, matchedTokens: [], confidence: 1.0 };
-      this.logHistory(userInput, response, [], 1.0);
       return result;
     }
 
