@@ -313,8 +313,8 @@ export class DialogueFractalEngine {
     return [
       // --- ORIGIN TEMPLATES ---
       {
-        // Qual é a origem de [Texto]? / Origem de [Texto]
-        regex: new RegExp(`^(?:qual\\s+e\\s+a\\s+)?origem\\s+${prep}\\s+(.+)$`, 'i'),
+        // Qual é a origem de [Texto]? / Qual a origem de [Texto]? / Origem de [Texto]
+        regex: new RegExp(`^(?:qual\\s+(?:e\\s+)?(?:o|a|os|as)?\\s+)?origem\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'origin',
         formatter: (concept: string, origin: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} ${origin}`
       },
@@ -322,7 +322,13 @@ export class DialogueFractalEngine {
         // De onde surgiu [Texto]?
         regex: new RegExp(`^de\\s+onde\\s+surgiu\\s+${art}\\s*(.+)$`, 'i'),
         type: 'origin',
-        formatter: (concept: string, origin: string) => `${this.capitalizeFirst(concept)} ${origin}`
+        formatter: (concept: string, origin: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} ${origin}`
+      },
+      {
+        // Como surgiu [Texto]?
+        regex: new RegExp(`^como\\s+surgiu\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'origin',
+        formatter: (concept: string, origin: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} ${origin}`
       },
       {
         // Como surgiu o conceito de [Texto]?
@@ -407,14 +413,14 @@ export class DialogueFractalEngine {
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        // Qual é o significado de [texto]?
-        regex: new RegExp(`^qual\\s+e\\s+o\\s+significado\\s+${prep}\\s+(.+)$`, 'i'),
+        // Qual é o significado de [texto]? / Qual o significado de [texto]?
+        regex: new RegExp(`^qual\\s+(?:e\\s+)?(?:o|a|os|as)?\\s+significado\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        // Qual é a definição de [texto]?
-        regex: new RegExp(`^qual\\s+e\\s+a\\s+definicao\\s+${prep}\\s+(.+)$`, 'i'),
+        // Qual é a definição de [texto]? / Qual a definição de [texto]?
+        regex: new RegExp(`^qual\\s+(?:e\\s+)?(?:o|a|os|as)?\\s+definicao\\s+${prep}\\s+(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
@@ -515,8 +521,8 @@ export class DialogueFractalEngine {
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
       {
-        // Qual é a explicação para [texto]?
-        regex: new RegExp(`^qual\\s+e\\s+a\\s+explicacao\\s+para\\s+${art}\\s*(.+)$`, 'i'),
+        // Qual é a explicação para [texto]? / Qual a explicação para [texto]?
+        regex: new RegExp(`^qual\\s+(?:e\\s+)?(?:o|a|os|as)?\\s+explicacao\\s+para\\s+${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
       },
