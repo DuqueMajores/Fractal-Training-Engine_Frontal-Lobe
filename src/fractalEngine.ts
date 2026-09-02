@@ -50,6 +50,8 @@ export class DialogueFractalEngine {
   input_fractal: FractalNode;
   attractor_map: Record<string, Attractor[]>;
   direct_pairs: Record<string, string>;
+  explanations: Record<string, { concept: string; explanation: string }> = {};
+  unknown_questions_count: number = 0;
   
   // Operational state
   last_input_tokens: string[] = [];
@@ -60,10 +62,16 @@ export class DialogueFractalEngine {
     this.input_fractal = new FractalNode(0, 3);
     this.attractor_map = {};
     this.direct_pairs = {};
+    this.explanations = {};
+    this.unknown_questions_count = 0;
   }
 
   hydrate(data: any) {
     if (!data) return;
+    
+    // Load explanations & counters
+    this.explanations = data.explanations || {};
+    this.unknown_questions_count = typeof data.unknown_questions_count === 'number' ? data.unknown_questions_count : 0;
     
     // Normalize direct_pairs
     this.direct_pairs = {};
@@ -269,15 +277,36 @@ export class DialogueFractalEngine {
     });
   }
 
+  addExplanation(concept: string, explanation: string): void {
+    const normKey = this.normalize(concept);
+    this.explanations[normKey] = {
+      concept: concept.trim(),
+      explanation: explanation.trim()
+    };
+    this.unknown_questions_count = 0;
+    this.absorbAndPair(concept, explanation);
+  }
+
   addDialogueRule(input: string, response: string): void {
     this.absorbAndPair(input, response);
   }
 
   processInput(userInput: string): string {
+    const eqIndex = userInput.indexOf('=');
+    if (eqIndex !== -1) {
+      const text = userInput.substring(0, eqIndex).trim();
+      const explanation = userInput.substring(eqIndex + 1).trim();
+      if (text && explanation) {
+        this.addExplanation(text, explanation);
+        return `Explicação de "${text}" salva e assimilada na rede.`;
+      }
+    }
+
     const match = userInput.match(/quando\s+eu\s+disser\s*:?\s*(.+?)\s*,\s*voc[eê]\s*(?:me\s*)?responde\s*:?\s*(.+)/i);
     if (match) {
       const input = match[1].trim();
       const response = match[2].trim();
+      this.unknown_questions_count = 0;
       this.absorbAndPair(input, response);
       return "Atrator assimilado na rede.";
     }
@@ -335,12 +364,51 @@ export class DialogueFractalEngine {
       return { response: "Feedback negativo registrado. Ajustando pesos de atração.", matchedTokens: [normInput], confidence: 1.0 };
     }
 
+    // Explanation query matcher (checks direct & prefixes)
+    let matchedExplanationKey: string | null = null;
+    const normKeys = Object.keys(this.explanations);
+    
+    for (const normKey of normKeys) {
+      if (normInput === normKey || normInput === `${normKey} ?`) {
+        matchedExplanationKey = normKey;
+        break;
+      }
+      if (normInput === `o que e ${normKey}` || normInput === `o que e ${normKey} ?`) {
+        matchedExplanationKey = normKey;
+        break;
+      }
+      if (normInput === `me fale sobre ${normKey}` || normInput === `me fale sobre ${normKey} ?`) {
+        matchedExplanationKey = normKey;
+        break;
+      }
+      if (normInput === `me explique o que e ${normKey}` || normInput === `me explique o que e ${normKey} ?`) {
+        matchedExplanationKey = normKey;
+        break;
+      }
+    }
+    
+    if (matchedExplanationKey) {
+      const entry = this.explanations[matchedExplanationKey];
+      const finalResponse = `${entry.concept} significa ${entry.explanation}`;
+      
+      const tks = this.tokenize(userInput);
+      this.input_fractal.feed(tks);
+      this.last_input_tokens = tks;
+      this.last_response_text = finalResponse;
+      this.unknown_questions_count = 0; // reset
+      
+      const result = { response: finalResponse, matchedTokens: tks, confidence: 1.0 };
+      this.logHistory(userInput, finalResponse, tks, 1.0);
+      return result;
+    }
+
     // 1. Direct exact match (highest confidence)
     if (this.direct_pairs[normInput]) {
       const response = this.direct_pairs[normInput];
       const tokens = this.tokenize(userInput);
       this.last_input_tokens = tokens;
       this.last_response_text = response;
+      this.unknown_questions_count = 0; // reset
       
       const result = { response, matchedTokens: tokens, confidence: 1.0 };
       this.logHistory(userInput, response, tokens, 1.0);
@@ -378,11 +446,42 @@ export class DialogueFractalEngine {
     if (bestCandidate && maxScore >= 0.5) {
       const response = (bestCandidate as Attractor).response;
       this.last_response_text = response;
+      this.unknown_questions_count = 0; // reset
       
       // Calculate a pseudo confidence percentage
       const confidence = Math.min(maxScore / 4.0, 1.0);
       const result = { response, matchedTokens, confidence };
       this.logHistory(userInput, response, matchedTokens, confidence);
+      return result;
+    }
+
+    // Question fallback sensitivity
+    const isQuestion = userInput.trim().endsWith('?') || normInput.endsWith('?');
+    if (isQuestion) {
+      this.unknown_questions_count++;
+      let responseText = "";
+      if (this.unknown_questions_count < 4) {
+        const politeOptions = [
+          "Não entedi",
+          "Não tenho essa informação no meu sistema",
+          "Não, você pode me ensinar o que significa isso?",
+          "Isso pra mim é novidade, pode me explicar?"
+        ];
+        responseText = politeOptions[Math.floor(Math.random() * politeOptions.length)];
+      } else {
+        const sassyOptions = [
+          "Tá tão engraçadinho hoje",
+          "Você acha que eu tiro coelho da cartola??",
+          "Já tomou seus remedinhos? Ou vai ficar de tick?",
+          "Se não for me ensinar, não enche!",
+          "O burro aqui sou eu, não se esqueça!",
+          "Já deu né? pode mudar de assunto"
+        ];
+        responseText = sassyOptions[Math.floor(Math.random() * sassyOptions.length)];
+      }
+      this.last_response_text = responseText;
+      const result = { response: responseText, matchedTokens: [], confidence: 0 };
+      this.logHistory(userInput, responseText, [], 0);
       return result;
     }
 

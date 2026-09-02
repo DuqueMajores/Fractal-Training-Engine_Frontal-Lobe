@@ -79,6 +79,8 @@ export default function App() {
       localStorage.setItem('fractal_frequencies', JSON.stringify(engine.input_fractal.frequencies));
       localStorage.setItem('fractal_transitions', JSON.stringify(engine.input_fractal.transitions));
       localStorage.setItem('fractal_history', JSON.stringify(engine.history));
+      localStorage.setItem('fractal_explanations', JSON.stringify(engine.explanations));
+      localStorage.setItem('fractal_unknown_questions_count', String(engine.unknown_questions_count));
     } catch (e) {
       console.error('Failed to save active state to localStorage', e);
     }
@@ -95,7 +97,9 @@ export default function App() {
         attractor_map: engine.attractor_map,
         frequencies: engine.input_fractal.frequencies,
         transitions: engine.input_fractal.transitions,
-        history: engine.history
+        history: engine.history,
+        explanations: engine.explanations,
+        unknown_questions_count: engine.unknown_questions_count
       };
       
       const res = await fetch('/api/save-pkl', {
@@ -197,6 +201,8 @@ export default function App() {
         const savedFreqs = localStorage.getItem('fractal_frequencies');
         const savedTrans = localStorage.getItem('fractal_transitions');
         const savedHist = localStorage.getItem('fractal_history');
+        const savedExplanations = localStorage.getItem('fractal_explanations');
+        const savedUnknownQuestionsCount = localStorage.getItem('fractal_unknown_questions_count');
 
         if (savedDirect && savedAttractor) {
           try {
@@ -206,7 +212,9 @@ export default function App() {
               attractor_map: JSON.parse(savedAttractor),
               frequencies: savedFreqs ? JSON.parse(savedFreqs) : undefined,
               transitions: savedTrans ? JSON.parse(savedTrans) : undefined,
-              history: savedHist ? JSON.parse(savedHist) : undefined
+              history: savedHist ? JSON.parse(savedHist) : undefined,
+              explanations: savedExplanations ? JSON.parse(savedExplanations) : undefined,
+              unknown_questions_count: savedUnknownQuestionsCount ? Number(savedUnknownQuestionsCount) : undefined
             };
             engine.hydrate(payload);
             

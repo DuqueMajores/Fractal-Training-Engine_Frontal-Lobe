@@ -118,14 +118,28 @@ export const ChatConsole: React.FC<ChatConsoleProps> = ({
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden bg-slate-50 dark:bg-slate-950/60 border-b border-slate-100 dark:border-slate-800/40"
           >
-            <div className="p-4 text-xs text-slate-500 dark:text-slate-400 space-y-2">
-              <p className="font-semibold text-slate-700 dark:text-slate-300">Fórmula de Associação Livre:</p>
-              <p className="leading-relaxed">
-                Ensine novos termos digitando e enviando uma mensagem no padrão:
-              </p>
-              <code className="block p-2 rounded bg-slate-100/60 dark:bg-slate-900 font-mono text-[10px] text-sky-600 dark:text-sky-400">
-                quando eu disser: [Oi], você me responde: [Olá!]
-              </code>
+            <div className="p-4 text-xs text-slate-500 dark:text-slate-400 space-y-3">
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 dark:text-slate-300">Fórmula de Associação Livre:</p>
+                <p className="leading-relaxed">
+                  Ensine novos termos digitando e enviando uma mensagem no padrão:
+                </p>
+                <code className="block p-2 rounded bg-slate-100/60 dark:bg-slate-900 font-mono text-[10px] text-sky-600 dark:text-sky-400">
+                  quando eu disser: [Oi], você me responde: [Olá!]
+                </code>
+              </div>
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-700 dark:text-slate-300">Definições e Explicações:</p>
+                <p className="leading-relaxed">
+                  Ensine o significado de conceitos usando a fórmula:
+                </p>
+                <code className="block p-2 rounded bg-slate-100/60 dark:bg-slate-900 font-mono text-[10px] text-sky-600 dark:text-sky-400">
+                  [texto] = [Explicação] &nbsp;(Ex: Lobo Frontal = Córtex associativo funcional)
+                </code>
+                <p className="text-[9px] text-slate-400 leading-relaxed mt-1">
+                  Ao consultar ("O que é [texto]?", "Me fale sobre [texto]", "Me explique o que é [texto]" ou apenas "[texto]"), o sistema responderá: <span className="font-medium text-slate-600 dark:text-slate-300 select-all">[Texto] significa [Explicação]</span>.
+                </p>
+              </div>
             </div>
           </motion.div>
         )}
