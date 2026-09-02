@@ -301,8 +301,8 @@ export class DialogueFractalEngine {
     const w = word.trim().toLowerCase();
     if (w.endsWith('as')) return 'As';
     if (w.endsWith('os')) return 'Os';
-    if (w.endsWith('a')) return 'A';
-    if (w.endsWith('o')) return 'O';
+    if (w.endsWith('a') || w.endsWith('agem') || w.endsWith('dade') || w.endsWith('cao') || w.endsWith('ção')) return 'A';
+    if (w.endsWith('o') || w.endsWith('i') || w.endsWith('u') || w.endsWith('e') || w.endsWith('r') || w.endsWith('l') || w.endsWith('m')) return 'O';
     return 'O/A';
   }
 
@@ -537,12 +537,29 @@ export class DialogueFractalEngine {
         regex: new RegExp(`^qual\\s+(?:e\\s+)?(?:o\\s+|a\\s+|os\\s+|as\\s+)?(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} é ${exp}`
+      },
+      {
+        // De que cor é [texto]? / De que cor e [texto]?
+        regex: new RegExp(`^de\\s+que\\s+cor\\s+e\\s+${art}\\s*(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.getArticleForWord(concept)} ${this.capitalizeFirst(concept)} é ${exp}`
       }
     ];
   }
 
   stripLeadingArticle(str: string): string {
     return str.toLowerCase().replace(/^(?:o|a|os|as|um|uma)\s+/, '').trim();
+  }
+
+  splitPropertyAndConcept(str: string): { property: string, concept: string } | null {
+    const match = str.trim().match(/^(.+?)\s+(?:de|da|do|das|dos)\s+(.+)$/i);
+    if (match) {
+      return {
+        property: match[1].trim(),
+        concept: match[2].trim()
+      };
+    }
+    return null;
   }
 
   conceptsMatch(c1: string, c2: string): boolean {
@@ -556,10 +573,24 @@ export class DialogueFractalEngine {
   }
 
   findExplanation(userInput: string): { concept: string; explanation: string } | null {
+    // 1. Direct match
     for (const entry of Object.values(this.explanations)) {
       if (!entry || !entry.concept) continue;
       if (this.conceptsMatch(entry.concept, userInput)) {
         return entry;
+      }
+    }
+    // 2. Property split match (e.g. "cor do abacaxi" -> property="cor", concept="abacaxi")
+    const split = this.splitPropertyAndConcept(userInput);
+    if (split) {
+      for (const entry of Object.values(this.explanations)) {
+        if (!entry || !entry.concept) continue;
+        if (this.conceptsMatch(entry.concept, split.concept)) {
+          return {
+            concept: userInput,
+            explanation: entry.explanation
+          };
+        }
       }
     }
     return null;
