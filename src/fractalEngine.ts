@@ -547,6 +547,18 @@ export class DialogueFractalEngine {
     return null;
   }
 
+  findOrigin(userInput: string): { concept: string; origin: string } | null {
+    const cleanUser = this.normalizeAccents(userInput);
+    for (const entry of Object.values(this.origins)) {
+      if (!entry || !entry.concept) continue;
+      const cleanConcept = this.normalizeAccents(entry.concept);
+      if (cleanConcept === cleanUser) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
   findAdaptiveQuery(userInput: string): string | null {
     const cleanUser = this.normalizeAccents(userInput);
 
@@ -588,10 +600,18 @@ export class DialogueFractalEngine {
           if (entry) {
             return t.formatter(entry.concept, entry.explanation);
           }
+          const originEntry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          if (originEntry) {
+            return `${this.getArticleForWord(originEntry.concept)} ${this.capitalizeFirst(originEntry.concept)} ${originEntry.origin}`;
+          }
         } else if (t.type === 'origin') {
           const entry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
           if (entry) {
             return t.formatter(entry.concept, entry.origin);
+          }
+          const expEntry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === extractedConceptNorm);
+          if (expEntry) {
+            return `${this.capitalizeFirst(expEntry.concept)} significa ${expEntry.explanation}`;
           }
         }
       }
@@ -762,6 +782,20 @@ export class DialogueFractalEngine {
     const matchedExplanation = this.findExplanation(userInput);
     if (matchedExplanation) {
       const finalResponse = `${matchedExplanation.concept} significa ${matchedExplanation.explanation}`;
+      const tks = this.tokenize(userInput);
+      this.input_fractal.feed(tks);
+      this.last_input_tokens = tks;
+      this.last_response_text = finalResponse;
+      this.unknown_questions_count = 0; // reset
+      
+      const result = { response: finalResponse, matchedTokens: tks, confidence: 1.0 };
+      this.logHistory(userInput, finalResponse, tks, 1.0);
+      return result;
+    }
+
+    const matchedOrigin = this.findOrigin(userInput);
+    if (matchedOrigin) {
+      const finalResponse = `${this.getArticleForWord(matchedOrigin.concept)} ${this.capitalizeFirst(matchedOrigin.concept)} ${matchedOrigin.origin}`;
       const tks = this.tokenize(userInput);
       this.input_fractal.feed(tks);
       this.last_input_tokens = tks;
