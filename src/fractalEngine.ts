@@ -531,16 +531,34 @@ export class DialogueFractalEngine {
         regex: new RegExp(`^explique\\s+(?:o\\s+que\\s+e\\s+)?${art}\\s*(.+)$`, 'i'),
         type: 'explanation',
         formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} significa ${exp}`
+      },
+      {
+        // Qual é o [texto]? / Qual o [texto]?
+        regex: new RegExp(`^qual\\s+(?:e\\s+)?(?:o\\s+|a\\s+|os\\s+|as\\s+)?(.+)$`, 'i'),
+        type: 'explanation',
+        formatter: (concept: string, exp: string) => `${this.capitalizeFirst(concept)} é ${exp}`
       }
     ];
   }
 
+  stripLeadingArticle(str: string): string {
+    return str.toLowerCase().replace(/^(?:o|a|os|as|um|uma)\s+/, '').trim();
+  }
+
+  conceptsMatch(c1: string, c2: string): boolean {
+    const norm1 = this.normalizeAccents(c1).trim().toLowerCase();
+    const norm2 = this.normalizeAccents(c2).trim().toLowerCase();
+    if (norm1 === norm2) return true;
+    
+    const stripped1 = this.stripLeadingArticle(norm1);
+    const stripped2 = this.stripLeadingArticle(norm2);
+    return stripped1 === stripped2;
+  }
+
   findExplanation(userInput: string): { concept: string; explanation: string } | null {
-    const cleanUser = this.normalizeAccents(userInput);
     for (const entry of Object.values(this.explanations)) {
       if (!entry || !entry.concept) continue;
-      const cleanConcept = this.normalizeAccents(entry.concept);
-      if (cleanConcept === cleanUser) {
+      if (this.conceptsMatch(entry.concept, userInput)) {
         return entry;
       }
     }
@@ -548,11 +566,9 @@ export class DialogueFractalEngine {
   }
 
   findOrigin(userInput: string): { concept: string; origin: string } | null {
-    const cleanUser = this.normalizeAccents(userInput);
     for (const entry of Object.values(this.origins)) {
       if (!entry || !entry.concept) continue;
-      const cleanConcept = this.normalizeAccents(entry.concept);
-      if (cleanConcept === cleanUser) {
+      if (this.conceptsMatch(entry.concept, userInput)) {
         return entry;
       }
     }
@@ -564,9 +580,8 @@ export class DialogueFractalEngine {
 
     // Check context sub-prompts first
     if (this.last_context_concept) {
-      const contextNorm = this.normalizeAccents(this.last_context_concept);
-      const expEntry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === contextNorm);
-      const originEntry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === contextNorm);
+      const expEntry = Object.values(this.explanations).find(e => this.conceptsMatch(e.concept, this.last_context_concept!));
+      const originEntry = Object.values(this.origins).find(o => this.conceptsMatch(o.concept, this.last_context_concept!));
 
       if (["o que significa", "me explique", "conte me sobre", "conte-me sobre", "fale sobre", "me fale sobre"].includes(cleanUser)) {
         if (expEntry) {
@@ -586,30 +601,29 @@ export class DialogueFractalEngine {
       const match = cleanUser.match(t.regex);
       if (match) {
         const extractedConcept = match[1].trim();
-        const extractedConceptNorm = this.normalizeAccents(extractedConcept);
 
         if (t.type === 'special_ask') {
-          const exists = Object.values(this.explanations).some(e => this.normalizeAccents(e.concept) === extractedConceptNorm) ||
-                         Object.values(this.origins).some(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          const exists = Object.values(this.explanations).some(e => this.conceptsMatch(e.concept, extractedConcept)) ||
+                         Object.values(this.origins).some(o => this.conceptsMatch(o.concept, extractedConcept));
           if (exists) {
             this.last_context_concept = extractedConcept;
             return t.formatter("", "");
           }
         } else if (t.type === 'explanation') {
-          const entry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === extractedConceptNorm);
+          const entry = Object.values(this.explanations).find(e => this.conceptsMatch(e.concept, extractedConcept));
           if (entry) {
             return t.formatter(entry.concept, entry.explanation);
           }
-          const originEntry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          const originEntry = Object.values(this.origins).find(o => this.conceptsMatch(o.concept, extractedConcept));
           if (originEntry) {
             return `${this.getArticleForWord(originEntry.concept)} ${this.capitalizeFirst(originEntry.concept)} ${originEntry.origin}`;
           }
         } else if (t.type === 'origin') {
-          const entry = Object.values(this.origins).find(o => this.normalizeAccents(o.concept) === extractedConceptNorm);
+          const entry = Object.values(this.origins).find(o => this.conceptsMatch(o.concept, extractedConcept));
           if (entry) {
             return t.formatter(entry.concept, entry.origin);
           }
-          const expEntry = Object.values(this.explanations).find(e => this.normalizeAccents(e.concept) === extractedConceptNorm);
+          const expEntry = Object.values(this.explanations).find(e => this.conceptsMatch(e.concept, extractedConcept));
           if (expEntry) {
             return `${this.capitalizeFirst(expEntry.concept)} significa ${expEntry.explanation}`;
           }
@@ -664,6 +678,45 @@ export class DialogueFractalEngine {
   }
 
   processInput(userInput: string): string {
+    const lowerInput = userInput.trim().toLowerCase();
+    const isQuestion = lowerInput.endsWith('?') ||
+                       lowerInput.startsWith('o que ') ||
+                       lowerInput.startsWith('qual ') ||
+                       lowerInput.startsWith('como ') ||
+                       lowerInput.startsWith('onde ') ||
+                       lowerInput.startsWith('quem ') ||
+                       lowerInput.startsWith('quando ') ||
+                       lowerInput.startsWith('por que ') ||
+                       lowerInput.startsWith('porque ') ||
+                       lowerInput.startsWith('explique ') ||
+                       this.isAnyQueryPattern(userInput);
+
+    // Parse Portuguese copula " é " (with accent) or " e " (without accent if context is safe)
+    let eIndex = userInput.toLowerCase().indexOf(' é ');
+    if (eIndex === -1) {
+      const unaccentedEIndex = userInput.toLowerCase().indexOf(' e ');
+      if (unaccentedEIndex !== -1) {
+        const afterE = userInput.substring(unaccentedEIndex + 3).trim().toLowerCase();
+        const beforeE = userInput.substring(0, unaccentedEIndex).trim();
+        const looksLikeCopula = /^(?:um|uma|o|a|os|as|da|do|de|feita|feito|redondo|redonda|plano|esferico|chamado|considerado)\b/.test(afterE) ||
+                                (beforeE.split(/\s+/).length >= 2 && afterE.split(/\s+/).length >= 1);
+        if (looksLikeCopula) {
+          eIndex = unaccentedEIndex;
+        }
+      }
+    }
+
+    if (eIndex !== -1 && !isQuestion) {
+      const text = userInput.substring(0, eIndex).trim();
+      const explanation = userInput.substring(eIndex + 3).trim();
+      if (text && explanation && text.length > 2 && explanation.length > 2) {
+        this.addExplanation(text, explanation);
+        const responseText = `Explicação de "${text}" salva e assimilada na rede.`;
+        this.logHistory(userInput, responseText, [], 1.0);
+        return responseText;
+      }
+    }
+
     const sigIndex = userInput.toLowerCase().indexOf(' significa ');
     if (sigIndex !== -1) {
       const text = userInput.substring(0, sigIndex).trim();
