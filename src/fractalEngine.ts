@@ -277,6 +277,33 @@ export class DialogueFractalEngine {
     });
   }
 
+  normalizeAccents(str: string): string {
+    const lowered = str.toLowerCase().trim();
+    const noPunct = lowered.replace(/[?!\.,;:()=]/g, ' ').replace(/\s+/g, ' ').trim();
+    return noPunct.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  }
+
+  findExplanation(userInput: string): { concept: string; explanation: string } | null {
+    const cleanUser = this.normalizeAccents(userInput);
+    
+    for (const entry of Object.values(this.explanations)) {
+      if (!entry || !entry.concept) continue;
+      const cleanConcept = this.normalizeAccents(entry.concept);
+      
+      const patterns = [
+        cleanConcept,
+        `o que e ${cleanConcept}`,
+        `me fale sobre ${cleanConcept}`,
+        `me explique o que e ${cleanConcept}`
+      ];
+      
+      if (patterns.includes(cleanUser)) {
+        return entry;
+      }
+    }
+    return null;
+  }
+
   addExplanation(concept: string, explanation: string): void {
     const normKey = this.normalize(concept);
     this.explanations[normKey] = {
@@ -298,7 +325,9 @@ export class DialogueFractalEngine {
       const explanation = userInput.substring(eqIndex + 1).trim();
       if (text && explanation) {
         this.addExplanation(text, explanation);
-        return `Explicação de "${text}" salva e assimilada na rede.`;
+        const responseText = `Explicação de "${text}" salva e assimilada na rede.`;
+        this.logHistory(userInput, responseText, [], 1.0);
+        return responseText;
       }
     }
 
@@ -308,7 +337,9 @@ export class DialogueFractalEngine {
       const response = match[2].trim();
       this.unknown_questions_count = 0;
       this.absorbAndPair(input, response);
-      return "Atrator assimilado na rede.";
+      const responseText = "Atrator assimilado na rede.";
+      this.logHistory(userInput, responseText, [], 1.0);
+      return responseText;
     }
     return this.respond(userInput).response;
   }
@@ -364,33 +395,10 @@ export class DialogueFractalEngine {
       return { response: "Feedback negativo registrado. Ajustando pesos de atração.", matchedTokens: [normInput], confidence: 1.0 };
     }
 
-    // Explanation query matcher (checks direct & prefixes)
-    let matchedExplanationKey: string | null = null;
-    const normKeys = Object.keys(this.explanations);
-    
-    for (const normKey of normKeys) {
-      if (normInput === normKey || normInput === `${normKey} ?`) {
-        matchedExplanationKey = normKey;
-        break;
-      }
-      if (normInput === `o que e ${normKey}` || normInput === `o que e ${normKey} ?`) {
-        matchedExplanationKey = normKey;
-        break;
-      }
-      if (normInput === `me fale sobre ${normKey}` || normInput === `me fale sobre ${normKey} ?`) {
-        matchedExplanationKey = normKey;
-        break;
-      }
-      if (normInput === `me explique o que e ${normKey}` || normInput === `me explique o que e ${normKey} ?`) {
-        matchedExplanationKey = normKey;
-        break;
-      }
-    }
-    
-    if (matchedExplanationKey) {
-      const entry = this.explanations[matchedExplanationKey];
-      const finalResponse = `${entry.concept} significa ${entry.explanation}`;
-      
+    // 1. Explanation query matcher (checks direct & prefixes with accent stripping)
+    const matchedExplanation = this.findExplanation(userInput);
+    if (matchedExplanation) {
+      const finalResponse = `${matchedExplanation.concept} significa ${matchedExplanation.explanation}`;
       const tks = this.tokenize(userInput);
       this.input_fractal.feed(tks);
       this.last_input_tokens = tks;
@@ -402,7 +410,7 @@ export class DialogueFractalEngine {
       return result;
     }
 
-    // 1. Direct exact match (highest confidence)
+    // 2. Direct exact match (highest confidence)
     if (this.direct_pairs[normInput]) {
       const response = this.direct_pairs[normInput];
       const tokens = this.tokenize(userInput);
@@ -415,7 +423,38 @@ export class DialogueFractalEngine {
       return result;
     }
 
-    // 2. Token-based fractal attractor weight matching
+    // 3. Question fallback check
+    // If it ends with ? and has no exact/explanation match, it's an unknown question!
+    const isQuestion = userInput.trim().endsWith('?') || normInput.endsWith('?');
+    if (isQuestion) {
+      this.unknown_questions_count++;
+      let responseText = "";
+      if (this.unknown_questions_count < 4) {
+        const politeOptions = [
+          "Não entedi",
+          "Não tenho essa informação no meu sistema",
+          "Não, você pode me ensinar o que significa isso?",
+          "Isso pra mim é novidade, pode me explicar?"
+        ];
+        responseText = politeOptions[Math.floor(Math.random() * politeOptions.length)];
+      } else {
+        const sassyOptions = [
+          "Tá tão engraçadinho hoje",
+          "Você acha que eu tiro coelho da cartola??",
+          "Já tomou seus remedinhos? Ou vai ficar de tick?",
+          "Se não for me ensinar, não enche!",
+          "O burro aqui sou eu, não se esqueça!",
+          "Já deu né? pode mudar de assunto"
+        ];
+        responseText = sassyOptions[Math.floor(Math.random() * sassyOptions.length)];
+      }
+      this.last_response_text = responseText;
+      const result = { response: responseText, matchedTokens: [], confidence: 0 };
+      this.logHistory(userInput, responseText, [], 0);
+      return result;
+    }
+
+    // 4. Token-based fractal attractor weight matching
     const tokens = this.tokenize(userInput);
     if (tokens.length === 0) {
       return { response: "Salvo", matchedTokens: [], confidence: 0 };
@@ -448,40 +487,9 @@ export class DialogueFractalEngine {
       this.last_response_text = response;
       this.unknown_questions_count = 0; // reset
       
-      // Calculate a pseudo confidence percentage
       const confidence = Math.min(maxScore / 4.0, 1.0);
       const result = { response, matchedTokens, confidence };
       this.logHistory(userInput, response, matchedTokens, confidence);
-      return result;
-    }
-
-    // Question fallback sensitivity
-    const isQuestion = userInput.trim().endsWith('?') || normInput.endsWith('?');
-    if (isQuestion) {
-      this.unknown_questions_count++;
-      let responseText = "";
-      if (this.unknown_questions_count < 4) {
-        const politeOptions = [
-          "Não entedi",
-          "Não tenho essa informação no meu sistema",
-          "Não, você pode me ensinar o que significa isso?",
-          "Isso pra mim é novidade, pode me explicar?"
-        ];
-        responseText = politeOptions[Math.floor(Math.random() * politeOptions.length)];
-      } else {
-        const sassyOptions = [
-          "Tá tão engraçadinho hoje",
-          "Você acha que eu tiro coelho da cartola??",
-          "Já tomou seus remedinhos? Ou vai ficar de tick?",
-          "Se não for me ensinar, não enche!",
-          "O burro aqui sou eu, não se esqueça!",
-          "Já deu né? pode mudar de assunto"
-        ];
-        responseText = sassyOptions[Math.floor(Math.random() * sassyOptions.length)];
-      }
-      this.last_response_text = responseText;
-      const result = { response: responseText, matchedTokens: [], confidence: 0 };
-      this.logHistory(userInput, responseText, [], 0);
       return result;
     }
 
